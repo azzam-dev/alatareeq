@@ -1,0 +1,19 @@
+{
+  "name": "عالطريق",
+  "short_name": "عالطريق",
+  "description": "تذكير ذكي على طريقك: ينبهك بس لما يستاهل توقف.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./#today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F6F3",
+  "theme_color": "#0A5F41",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
