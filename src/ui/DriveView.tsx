@@ -72,7 +72,7 @@ export function DriveView() {
               )}
             </div>
             <p className="mode-desc">
-              {status.sim?.loading ? 'نجهز المسار ونحمّل الأماكن حوله...' : mode.desc}
+              {status.sim?.loading ? 'نجهز المسار ونحمّل الأماكن حوله...' : status.sim?.placesFailed ? 'المحاكاة متوقفة لين تتحمّل الأماكن.' : mode.desc}
             </p>
             <div className="stats">
               <div><b>{Math.round(status.speed * 3.6)}</b><span>كم/س</span></div>
@@ -84,6 +84,17 @@ export function DriveView() {
               {MODES.map((m) => <span key={m.id} className={m.id === status.mode ? 'on' : ''}>{m.label}</span>)}
             </div>
           </div>
+
+          {status.sim?.error && <div className="note bad">{status.sim.error}</div>}
+          {status.sim?.placesFailed && (
+            <div className="note bad">
+              ما قدرنا نحمّل الأماكن حول المسار، فما شغّلنا المحاكاة عشان ما تمر عليها قبل ما توصل.
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn primary" onClick={() => engine.retrySimPlaces()}>جرّب مرة ثانية</button>
+                <button className="btn" onClick={() => engine.runSim()}>شغّل بدون أماكن</button>
+              </div>
+            </div>
+          )}
 
           {status.source === 'sim' && (
             <div className="controls">
@@ -151,13 +162,12 @@ export function DriveView() {
             <button className="btn block" onClick={startSim} disabled={preset === 'custom' && !(picked.from && picked.to)}>
               <Icon.play size={18} /> شغّل المحاكاة
             </button>
-            {status.sim?.error && <div className="note bad">{status.sim.error}</div>}
             <small className="mode-desc" style={{ display: 'block', marginTop: 8, marginBottom: 0 }}>المحاكاة تتجاهل ساعات الهدوء عشان تقدر تجربها بأي وقت.</small>
           </div>
         </>
       )}
 
-      {status.placesError && <div className="note warn">{status.placesError}</div>}
+      {status.placesError && !status.sim?.placesFailed && !status.sim?.loading && <div className="note warn">{status.placesError}</div>}
       {status.fetching && <div className="note">نحمّل الأماكن من OpenStreetMap...</div>}
       <div className="note">
         نسخة الويب تشتغل والصفحة مفتوحة فقط، لأن المتصفح ما يسمح بتتبع الموقع في الخلفية. التشغيل والجوال مقفل يحتاج التطبيق الأصلي على iOS.

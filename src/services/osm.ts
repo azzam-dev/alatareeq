@@ -57,7 +57,10 @@ export interface Wanted {
   brands: { id: string; label: string }[];
 }
 
-export async function fetchPlaces(bbox: BBox, wanted: Wanted, signal?: AbortSignal): Promise<Place[]> {
+/** مهلة كل خادم؛ أطول من مهلة الاستعلام نفسه عشان الخادم يلحق يرجع ملاحظة الخطأ */
+const OVERPASS_TIMEOUT_MS = 25_000;
+
+export async function fetchPlaces(bbox: BBox, wanted: Wanted): Promise<Place[]> {
   const stmts: string[] = [];
   for (const c of CATEGORIES.filter((c) => wanted.categories.includes(c.id))) {
     for (const [k, v] of c.osm) stmts.push(`nwr["${k}"="${v}"];`);
@@ -69,22 +72,22 @@ export async function fetchPlaces(bbox: BBox, wanted: Wanted, signal?: AbortSign
   }
   if (!stmts.length) return [];
 
-  const q = `[out:json][timeout:25][bbox:${bbox.s.toFixed(5)},${bbox.w.toFixed(5)},${bbox.n.toFixed(5)},${bbox.e.toFixed(5)}];(${stmts.join('')});out tags center 2500;`;
+  const q = `[out:json][timeout:20][bbox:${bbox.s.toFixed(5)},${bbox.w.toFixed(5)},${bbox.n.toFixed(5)},${bbox.e.toFixed(5)}];(${stmts.join('')});out tags center 2500;`;
 
   let lastErr: unknown;
   for (const url of OVERPASS) {
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, OVERPASS_TIMEOUT_MS, {
         method: 'POST',
         body: 'data=' + encodeURIComponent(q),
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        signal,
       });
       if (!res.ok) throw new Error(`Overpass ${res.status}`);
-      const json = (await res.json()) as { elements: OsmElement[] };
+      const json = (await res.json()) as { elements: OsmElement[]; remark?: string };
+      // لو انتهت مهلة الاستعلام يرجع Overpass نتيجة ناقصة مع ملاحظة؛ قبولها يحفظها ٢٤ ساعة كأنها كاملة
+      if (json.remark?.includes('runtime error')) throw new Error(json.remark);
       return json.elements.map((el) => toPlace(el, brandRes)).filter((p): p is Place => p !== null);
     } catch (e) {
-      if (signal?.aborted) throw e;
       lastErr = e;
     }
   }
@@ -190,11 +193,11 @@ export async function searchPlaces(q: string, near: LatLon | null): Promise<Sear
   }));
 }
 
-async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+async function fetchWithTimeout(url: string, ms: number, init: RequestInit = {}): Promise<Response> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
   try {
-    return await fetch(url, { signal: ctl.signal });
+    return await fetch(url, { ...init, signal: ctl.signal });
   } finally {
     clearTimeout(t);
   }

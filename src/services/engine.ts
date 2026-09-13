@@ -14,7 +14,7 @@ import { store, uid, type Response } from '../state/store';
 import {
   announce, closeSystemNotifications, keepAwake, mapsUrl, showSystemNotification, unlockAudio,
 } from './device';
-import { routeGeometry, routeTo } from './osm';
+import { routeGeometry, routeTo, type RouteGeometry } from './osm';
 import { PlaceCache, wantedFrom } from './placeCache';
 import { Simulator } from './simulator';
 
@@ -80,7 +80,7 @@ export interface EngineStatus {
   placesError: string | null;
   placeCount: number;
   gpsError: string | null;
-  sim: { route: LatLon[]; progress: number; multiplier: number; loading: boolean; error?: string } | null;
+  sim: { route: LatLon[]; progress: number; multiplier: number; loading: boolean; error?: string; placesFailed?: boolean } | null;
   alerts: ActiveAlert[];
 }
 
@@ -103,6 +103,10 @@ class Engine {
   private watchId: number | null = null;
   private simulator: Simulator | null = null;
   private simBoxes: { need: BBox; fetch: BBox } | null = null;
+  /** مسار جاهز ينتظر تحميل الأماكن قبل ما تبدأ المحاكاة */
+  private pendingSim: RouteGeometry | null = null;
+  /** يزيد مع كل تغيير مصدر، عشان بدء قديم ما يكمل بعد إيقافه */
+  private simRun = 0;
   private lastPos: LatLon | null = null;
   private lastT = 0;
   private alerts: ActiveAlert[] = [];
@@ -170,24 +174,49 @@ class Engine {
   async startSim(from: LatLon, to: LatLon, multiplier: number) {
     unlockAudio();
     this.stopSource();
+    const run = this.simRun;
     this.emit({ source: 'sim', gpsError: null, sim: { route: [], progress: 0, multiplier, loading: true } });
+    let geom: RouteGeometry;
     try {
-      const geom = await routeGeometry(from, to);
-      if (this.status.source !== 'sim') return;
-      this.emit({ sim: { route: geom.coords, progress: 0, multiplier, loading: true } });
-      // نحمّل الأماكن على طول المسار كله مرة وحدة
-      this.simBoxes = { need: bboxOf(geom.coords, 1800), fetch: bboxOf(geom.coords, 2500) };
-      await Promise.race([
-        this.cache.ensure(this.simBoxes.need, this.simBoxes.fetch, wantedFrom(store.get().reminders)),
-        new Promise((r) => setTimeout(r, 30_000)),
-      ]);
-      if (this.status.source !== 'sim') return;
-      this.simulator = new Simulator(geom, (s) => this.ingest(s), () => this.stop());
-      this.emit({ sim: { route: geom.coords, progress: 0, multiplier, loading: false } });
-      this.simulator.start(multiplier);
+      geom = await routeGeometry(from, to);
     } catch {
-      this.emit({ sim: { route: [], progress: 0, multiplier, loading: false, error: 'ما قدرنا نجيب المسار. تأكد من الاتصال وجرب مرة ثانية.' } });
+      if (run === this.simRun) {
+        this.emit({ sim: { route: [], progress: 0, multiplier, loading: false, error: 'ما قدرنا نجيب المسار. تأكد من الاتصال وجرب مرة ثانية.' } });
+      }
+      return;
     }
+    if (run !== this.simRun) return;
+    // نحمّل الأماكن على طول المسار كله مرة وحدة
+    this.simBoxes = { need: bboxOf(geom.coords, 1800), fetch: bboxOf(geom.coords, 2500) };
+    this.pendingSim = geom;
+    await this.loadSimPlaces(run);
+  }
+
+  /** ما نبدأ المحاكاة قبل ما تتحمّل الأماكن، وإلا نمر عليها قبل ما توصل */
+  private async loadSimPlaces(run: number) {
+    const geom = this.pendingSim;
+    const boxes = this.simBoxes;
+    if (!geom || !boxes || !this.status.sim) return;
+    this.emit({ sim: { ...this.status.sim, route: geom.coords, loading: true, placesFailed: false } });
+    const ok = await this.cache.load(boxes.need, boxes.fetch, wantedFrom(store.get().reminders));
+    if (run !== this.simRun || !this.status.sim) return;
+    if (ok) this.runSim();
+    else this.emit({ sim: { ...this.status.sim, loading: false, placesFailed: true } });
+  }
+
+  retrySimPlaces() {
+    void this.loadSimPlaces(this.simRun);
+  }
+
+  /** يبدأ المسار الجاهز؛ لو الأماكن ما تحمّلت تنحمّل أثناء المشوار إذا رجع الخادم */
+  runSim() {
+    const geom = this.pendingSim;
+    const sim = this.status.sim;
+    if (!geom || !sim || this.status.source !== 'sim') return;
+    this.pendingSim = null;
+    this.simulator = new Simulator(geom, (s) => this.ingest(s), () => this.stop());
+    this.emit({ sim: { ...sim, progress: 0, loading: false, placesFailed: false } });
+    this.simulator.start(sim.multiplier);
   }
 
   setSimSpeed(m: number) {
@@ -201,7 +230,11 @@ class Engine {
     this.simulator?.stop();
     this.simulator = null;
     this.simBoxes = null;
+    this.pendingSim = null;
+    this.simRun++;
     this.kin.reset();
+    // كل مصدر له خط زمني: وقت المحاكاة يسبق الساعة، فأوقات الوصول القديمة تمنع تنبيهات المصدر الجديد
+    this.arrivedAt.clear();
   }
 
   stop() {

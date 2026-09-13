@@ -55,13 +55,37 @@ export class PlaceCache {
     this.ensure(bboxAround(p, 2500), bboxAround(p, 6000), wanted);
   }
 
-  ensure(need: BBox, fetchBox: BBox, wanted: Wanted): Promise<void> | void {
+  ensure(need: BBox, fetchBox: BBox, wanted: Wanted) {
     const keys = keysOf(wanted);
     if (!keys.length || this.covered(need, keys) || this.inflight) return;
     if (Date.now() - this.lastFail < 30_000) return;
+    this.fetch(fetchBox, wanted, keys);
+  }
+
+  /**
+   * للبدء الصريح: ينتظر أي تحميل شغال ويتجاهل مهلة إعادة المحاولة.
+   * يرجع هل المنطقة صارت مغطاة.
+   */
+  async load(need: BBox, fetchBox: BBox, wanted: Wanted): Promise<boolean> {
+    const keys = keysOf(wanted);
+    if (!keys.length || this.covered(need, keys)) return true;
+    if (this.inflight) {
+      await this.inflight;
+      if (this.covered(need, keys)) return true;
+    }
+    if (!this.inflight) this.fetch(fetchBox, wanted, keys);
+    await this.inflight;
+    return this.covered(need, keys);
+  }
+
+  private fetch(fetchBox: BBox, wanted: Wanted, keys: string[]) {
     this.inflight = fetchPlaces(fetchBox, wanted)
       .then((list) => {
-        for (const p of list) this.places.set(p.id, p);
+        // نعيد إدراجها عشان تكون الأحدث، فتقليص الكاش ما يحذفها
+        for (const p of list) {
+          this.places.delete(p.id);
+          this.places.set(p.id, p);
+        }
         this.areas = [...this.areas.filter((a) => Date.now() - a.at < TTL), { bbox: fetchBox, keys, at: Date.now() }].slice(-30);
         this.error = null;
         this.save();
@@ -75,13 +99,14 @@ export class PlaceCache {
         this.onChange();
       });
     this.onChange();
-    return this.inflight;
   }
 
   private save() {
     if (this.places.size > MAX_PLACES) {
       const keep = [...this.places.values()].slice(-MAX_PLACES);
       this.places = new Map(keep.map((p) => [p.id, p]));
+      // أماكن المناطق القديمة انحذفت، فما عادت مغطاة؛ نبقي آخر منطقة بس
+      this.areas = this.areas.slice(-1);
     }
     try {
       localStorage.setItem(KEY, JSON.stringify({ places: [...this.places.values()], areas: this.areas }));
