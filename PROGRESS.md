@@ -1,6 +1,6 @@
 # حالة العمل
 
-آخر تحديث: ١٣ سبتمبر ٢٠٢٦ · الفرع `master` · آخر commit: `c6e3520`
+آخر تحديث: ١٣ سبتمبر ٢٠٢٦ · الفرع `master`
 
 ### تم
 
@@ -14,7 +14,6 @@
   تنبيه الوقت وزر «تم» وزر «ذكرني بالرجعة» اشتغلت كلها.
 - إصلاحات بعد التحقق: لوحة التنبيه كانت تحت الخريطة، سؤال «تجاوزت؟» كان يحجب تنبيهًا جديدًا،
   ردود «تجاوزت؟» ما كانت تُسجَّل، رموز ≥/≤ انقلبت في RTL، وأشرطة الإعدادات كانت تتعبّى بالعكس.
-- `CLAUDE.md` و`PROGRESS.md` مكتوبة (غير مُرسلة في commit بعد).
 
 ### قيد العمل
 
@@ -49,8 +48,7 @@
 
 ### التالي
 
-1. **commit للتوثيق**: `git add CLAUDE.md PROGRESS.md && git commit` ثم `git push`.
-2. **نقل قرار الوصول إلى `src/core` مع اختبارات** (ينفَّذ بدون أي مدخلات خارجية):
+1. **نقل قرار الوصول إلى `src/core` مع اختبارات** (ينفَّذ بدون أي مدخلات خارجية):
    - أنشئ `src/core/arrival.ts` بدالة صافية
      `arrivalHits(me, speed, t, reminders, places, settings, arrivedAt: Map<string, number>): { place: Place; reminders: Reminder[] }[]`
      تنقل منطق الاختيار من `Engine.checkArrivals` في `src/services/engine.ts` (السطر ~443): تجاهل لو السرعة > ٣،
@@ -59,12 +57,12 @@
    - أضف `src/core/arrival.test.ts`: داخل النطاق وواقف ← تنبيه · داخل النطاق ومسرع ← لا · تذكيران لنفس المكان ← تنبيه واحد
      · تكرار قبل ٣٠ دقيقة ← لا · `notBefore` مستقبلي ← لا.
    - تحقق: `npm test` و`npx tsc -b`.
-3. **نفس الشيء لقرار «تجاوزت / مرّينا بدون تنبيه»** في `Engine.onPassed` (السطر ~401): استخرج قرار
+2. **نفس الشيء لقرار «تجاوزت / مرّينا بدون تنبيه»** في `Engine.onPassed` (السطر ~401): استخرج قرار
    `ask | missed | none` لدالة صافية في `src/core/gate.ts` واختبرها (قاعدة `wasAhead ? <300 : <150`، واستثناء `notified`/`snoozed`).
-4. **النشر** (يحتاج صاحب حساب Vercel): vercel.com/new ← Import `azzam-dev/alatareeq` ← امنح تطبيق GitHub
+3. **النشر** (يحتاج صاحب حساب Vercel): vercel.com/new ← Import `azzam-dev/alatareeq` ← امنح تطبيق GitHub
    إذن المستودع ← اسم المشروع **ليس** `alatareeq` ← الإعدادات الافتراضية لـ Vite ← Deploy.
    احذف المشروع التجريبي الفاضي `alatareeq-web` لو ما استُخدم.
-5. بعد الرابط: ٣–٥ مشاوير حقيقية بالـ GPS، ثم ضبط `maxDetourMin` و`outerRingM` و`aheadAngleDeg` و`SIDE_SPEED_MS` من السجل.
+4. بعد الرابط: ٣–٥ مشاوير حقيقية بالـ GPS، ثم ضبط `maxDetourMin` و`outerRingM` و`aheadAngleDeg` و`SIDE_SPEED_MS` من السجل.
 
 ### مشاكل معروفة
 
