@@ -2,6 +2,14 @@ import { BRANDS, CATEGORIES, CATEGORY_BY_ID, type CategoryDef } from './lexicon'
 import { normalize, stems } from './normalize';
 import type { CategoryId, Place } from './types';
 
+const NAME_KEYS = ['name', 'name:ar', 'name:en', 'brand', 'brand:ar', 'brand:en'];
+
+/**
+ * وسوم تثبت إن المكان محل له هوية. العنوان ما يكفي لأنه يبقى بعد ما يتسكّر المحل.
+ * مثال: node/672710394 عليه «shop=supermarket» بس، من ٢٠١٠، ومكانه اليوم مقهى.
+ */
+const IDENTITY_KEYS = [...NAME_KEYS, 'operator', 'phone', 'contact:phone', 'website', 'contact:website'];
+
 /** كلمات كل اسم، ولكل كلمة صيغها بدون «ال» وحروف الجر */
 function nameTokens(names: string[]): string[][][] {
   return names.map((n) => normalize(n).split(/[^0-9a-z؀-ۿ]+/).filter(Boolean).map(stems));
@@ -14,10 +22,15 @@ export function nameMentions(names: string[], words: string[]): boolean {
     phrases.some((p) => toks.some((_, i) => p.every((part, k) => toks[i + k]?.includes(part)))));
 }
 
-/** فئات المكان ونوعه من وسوم OSM، بعد استبعاد الفئات اللي اسمه يناقضها */
-export function classifyPlace(tags: Record<string, string>, names: string[]): { categories: CategoryId[]; kind?: string } {
+/**
+ * فئات المكان ونوعه من وسوم OSM. نشيل الفئة لو اسم المكان يناقضها،
+ * أو لو الفئة تحتاج هوية والمكان ما عليه أي معلومة تثبتها.
+ */
+export function classifyPlace(tags: Record<string, string>): { categories: CategoryId[]; kind?: string } {
+  const names = NAME_KEYS.map((k) => tags[k]).filter(Boolean);
+  const identified = IDENTITY_KEYS.some((k) => tags[k]?.trim());
   const categories = CATEGORIES
-    .filter((c) => c.osm.some(([k, v]) => tags[k] === v) && !nameMentions(names, c.excludeWords))
+    .filter((c) => c.osm.some(([k, v]) => tags[k] === v) && (identified || !c.requireIdentity) && !nameMentions(names, c.excludeWords))
     .map((c) => c.id);
   for (const c of CATEGORIES) {
     if (!categories.includes(c.id)) continue;

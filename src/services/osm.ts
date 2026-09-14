@@ -105,8 +105,8 @@ function toPlace(el: OsmElement, brands: { id: string; re: string }[]): Place | 
     const re = new RegExp(b.re, 'i');
     return names.some((n) => re.test(n));
   }).map((b) => b.id);
-  const name = tags['name:ar'] || tags.name || tags['brand:ar'] || tags.brand || '';
-  return { id: `${el.type}/${el.id}`, name, lat, lon, ...classifyPlace(tags, names), brands: matchedBrands };
+  const name = tags['name:ar'] || tags.name || tags['brand:ar'] || tags.brand || tags.operator || '';
+  return { id: `${el.type}/${el.id}`, name, lat, lon, ...classifyPlace(tags), brands: matchedBrands };
 }
 
 // ——— OSRM: المسارات والوقت ———

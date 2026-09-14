@@ -15,6 +15,11 @@ export interface CategoryDef {
    * نطابق الكلمة كاملة، فـ«العابدين» ما تنستبعد.
    */
   excludeWords: string[];
+  /**
+   * المكان لازم يكون عليه اسم أو مشغّل أو هاتف أو موقع، وإلا ما ينحسب من الفئة.
+   * نقاط المحلات بلا هوية غالبًا قديمة وتسكّرت؛ المحطات تبان من الأقمار فما تحتاجه.
+   */
+  requireIdentity: boolean;
 }
 
 export const CATEGORIES: CategoryDef[] = [
@@ -24,6 +29,7 @@ export const CATEGORIES: CategoryDef[] = [
     anyLabel: 'أي صيدلية',
     words: ['صيدليه', 'صيدليات', 'فارمسي'],
     osm: [['amenity', 'pharmacy', 'صيدلية'], ['shop', 'chemist', 'صيدلية'], ['healthcare', 'pharmacy', 'صيدلية']],
+    requireIdentity: true,
     nameWords: ['pharmacy', 'pharmacies', 'drugstore'],
     excludeWords: [],
   },
@@ -33,6 +39,7 @@ export const CATEGORIES: CategoryDef[] = [
     anyLabel: 'أي بقالة',
     words: ['بقاله', 'بقالات', 'سوبرماركت', 'سوبر ماركت', 'ماركت', 'تموينات', 'هايبر', 'هايبرماركت', 'سوبر'],
     osm: [['shop', 'supermarket', 'سوبرماركت'], ['shop', 'convenience', 'بقالة'], ['shop', 'grocery', 'بقالة'], ['shop', 'greengrocer', 'خضار وفواكه']],
+    requireIdentity: true,
     nameWords: [
       'اسواق', 'سوق', 'مخابز', 'خضار', 'خضاره', 'خضروات', 'فواكه', 'فاكهه',
       'market', 'markets', 'supermarket', 'supermarkt', 'hypermarket', 'minimarket', 'mart', 'grocery', 'convenience', 'bakala',
@@ -50,6 +57,7 @@ export const CATEGORIES: CategoryDef[] = [
     anyLabel: 'أي مكتبة',
     words: ['مكتبه', 'مكتبات', 'قرطاسيه'],
     osm: [['shop', 'books', 'مكتبة'], ['shop', 'stationery', 'قرطاسية']],
+    requireIdentity: true,
     nameWords: ['books', 'bookstore', 'bookshop', 'library', 'stationery'],
     excludeWords: [],
   },
@@ -59,6 +67,7 @@ export const CATEGORIES: CategoryDef[] = [
     anyLabel: 'أي محطة وقود',
     words: ['محطه بنزين', 'محطه وقود', 'بنزينه', 'محطه', 'محطات', 'كازيه'],
     osm: [['amenity', 'fuel', 'محطة وقود']],
+    requireIdentity: false,
     nameWords: ['بنزين', 'وقود', 'station', 'fuel', 'petrol'],
     excludeWords: [],
   },
@@ -68,6 +77,7 @@ export const CATEGORIES: CategoryDef[] = [
     anyLabel: 'أي مغسلة',
     words: ['مغسله ملابس', 'مغسله', 'دراي كلين', 'مصبغه'],
     osm: [['shop', 'laundry', 'مغسلة'], ['shop', 'dry_cleaning', 'مغسلة']],
+    requireIdentity: true,
     nameWords: ['laundry', 'dry cleaning', 'dry clean'],
     excludeWords: [],
   },
@@ -77,6 +87,7 @@ export const CATEGORIES: CategoryDef[] = [
     anyLabel: 'أي محطة شحن',
     words: ['محطه شحن', 'شاحن سيارات', 'شحن سيارات', 'شحن كهربا'],
     osm: [['amenity', 'charging_station', 'شحن سيارات']],
+    requireIdentity: false,
     nameWords: ['شحن', 'charging', 'charger'],
     excludeWords: [],
   },
