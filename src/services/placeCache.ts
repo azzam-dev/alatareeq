@@ -2,7 +2,9 @@ import { bboxAround, bboxContains, type BBox, type LatLon } from '../core/geo';
 import type { CategoryId, Place, Reminder } from '../core/types';
 import { fetchPlaces, type Wanted } from './osm';
 
-const KEY = 'alatareeq:places:v1';
+/** v2: المكان فيه نوعه (kind)، وفئاته بعد استبعاد الأسماء المناقضة */
+const KEY = 'alatareeq:places:v2';
+const OLD_KEY = 'alatareeq:places:v1';
 const TTL = 24 * 3600_000;
 const MAX_PLACES = 4000;
 
@@ -33,6 +35,7 @@ export class PlaceCache {
 
   constructor() {
     try {
+      localStorage.removeItem(OLD_KEY);
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const s = JSON.parse(raw) as { places: Place[]; areas: Area[] };

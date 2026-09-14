@@ -31,6 +31,8 @@ export interface ActiveAlert {
   place?: Place;
   reminderIds: string[];
   createdAt: number;
+  /** يظهر «مو مناسب»: التذكير بفئة أو براند معروف، فإخفاء المكان له أثر */
+  canHide?: boolean;
 }
 
 export type CandStatus = 'pending' | 'routing' | 'alerted' | 'rejected' | 'blocked' | 'passed';
@@ -88,6 +90,10 @@ const ARRIVE_REPEAT_MS = 30 * 60_000;
 const ALERT_PRIORITY: Record<AlertKind, number> = { pass: 0, arrive: 1, time: 2, passed: 3 };
 const NEARBY_M = 4000;
 
+/** نفس قاعدة placeMatches: الاسم الحر والموقع المحدد اختيار المستخدم، فما نخفيها */
+const hideable = (r: Reminder) =>
+  r.target?.kind === 'category' || (r.target?.kind === 'brand' && !r.target.brandId.startsWith('name:'));
+
 class Engine {
   private status: EngineStatus = {
     source: 'none', mode: 'idle', position: null, speed: 0, heading: null, accuracy: null, trip: null,
@@ -111,6 +117,7 @@ class Engine {
   private lastT = 0;
   private alerts: ActiveAlert[] = [];
   private arrivedAt = new Map<string, number>();
+  private hidden: ReadonlySet<string> = new Set();
   private quietLogged = new Set<string>();
 
   constructor() {
@@ -251,6 +258,7 @@ class Engine {
   private ingest(s: Sample) {
     const settings = this.settings();
     const reminders = store.get().reminders;
+    this.hidden = new Set(store.get().hiddenPlaces);
     const { speed, heading } = this.kin.push(s);
     const me = { lat: s.lat, lon: s.lon };
     const placeRems = reminders.filter((r) => r.status === 'active' && r.target && r.trigger !== 'time');
@@ -282,7 +290,7 @@ class Engine {
       candidates: this.candViews(settings),
       nearby: places.filter((p) => distanceM(me, p) < NEARBY_M).slice(0, 200).map((p) => ({
         id: p.id, name: placeTitle(p), lat: p.lat, lon: p.lon,
-        titles: placeRems.filter((r) => placeMatches(r, p)).map((r) => r.title),
+        titles: placeRems.filter((r) => placeMatches(r, p, this.hidden)).map((r) => r.title),
       })),
       sim: this.simulator && this.status.sim ? { ...this.status.sim, progress: this.simulator.progress } : this.status.sim,
     });
@@ -299,7 +307,7 @@ class Engine {
     }
     for (const p of this.cache.places.values()) {
       if (Math.abs(p.lat - me.lat) > 0.08 || Math.abs(p.lon - me.lon) > 0.09) continue; // ~٩ كم
-      if (rems.some((r) => placeMatches(r, p))) out.push(p);
+      if (rems.some((r) => placeMatches(r, p, this.hidden))) out.push(p);
     }
     return out;
   }
@@ -334,7 +342,7 @@ class Engine {
     const toRoute: { c: CandState; rel: Relative }[] = [];
 
     for (const place of places) {
-      const matched = rems.filter((r) => placeMatches(r, place));
+      const matched = rems.filter((r) => placeMatches(r, place, this.hidden));
       if (!matched.length) continue;
       const rel = relativeTo(me, heading, place);
       let c = this.cands.get(place.id);
@@ -418,7 +426,7 @@ class Engine {
       id: alertId, kind: 'pass', label: 'على طريقك', title: placeTitle(best.place),
       distanceText: formatDistance(best.distance),
       sub: `${formatDetour(best.detourSeconds)} · عندك: ${itemsText(rems)}`,
-      why, place: best.place, reminderIds: rems.map((r) => r.id), createdAt: Date.now(),
+      why, place: best.place, reminderIds: rems.map((r) => r.id), createdAt: Date.now(), canHide: rems.some(hideable),
     };
     store.log({
       kind: 'alert', alertId, text: why, placeName: alert.title, reminderIds: alert.reminderIds,
@@ -481,7 +489,7 @@ class Engine {
       const last = this.arrivedAt.get(r.id);
       if (last && t - last < ARRIVE_REPEAT_MS) continue;
       if (r.snoozedTripId && this.trip && r.snoozedTripId === this.trip.id) continue;
-      const hit = places.find((p) => placeMatches(r, p) && distanceM(me, p) <= settings.arriveRadiusM);
+      const hit = places.find((p) => placeMatches(r, p, this.hidden) && distanceM(me, p) <= settings.arriveRadiusM);
       if (!hit) continue;
       const g = byPlace.get(hit.id) ?? { place: hit, rems: [] };
       g.rems.push(r);
@@ -503,7 +511,7 @@ class Engine {
       const alert: ActiveAlert = {
         id: alertId, kind: 'arrive', label: 'وصلت', title: placeTitle(place),
         sub: `عندك: ${itemsText(rs)}`, why: `داخل ${settings.arriveRadiusM} م من المكان وسرعتك منخفضة`,
-        place, reminderIds: rs.map((r) => r.id), createdAt: Date.now(),
+        place, reminderIds: rs.map((r) => r.id), createdAt: Date.now(), canHide: rs.some(hideable),
       };
       store.log({ kind: 'arrive', alertId, text: alert.why!, placeName: alert.title, reminderIds: alert.reminderIds, reminderTitles: rs.map((r) => r.title), sim: this.status.source === 'sim' });
       this.pushAlert(alert, `وصلت ${alert.title}. عندك: ${itemsText(rs, 2)}`, [{ action: 'done', title: 'تم' }, { action: 'later', title: 'لاحقًا' }]);
@@ -577,6 +585,13 @@ class Engine {
         break;
       case 'return':
         store.updateReminders(ids, () => ({ remindOnReturn: true }));
+        break;
+      case 'wrong':
+        // «مو مناسب»: غالبًا وسمه في OSM غلط، فنخفيه على هالجهاز
+        if (a.place) {
+          store.hidePlace(a.place.id);
+          this.cands.delete(a.place.id);
+        }
         break;
       case 'no':
       case 'ignored':

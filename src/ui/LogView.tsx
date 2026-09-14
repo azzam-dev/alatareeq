@@ -14,7 +14,7 @@ const KIND: Record<LogKind, { text: string; cls: string }> = {
 };
 
 const RESPONSE: Record<Response, string> = {
-  go: 'رحت له', done: 'تم', later: 'لاحقًا', ignored: 'تجاهلته', return: 'ذكرني بالرجعة', no: 'لا',
+  go: 'رحت له', done: 'تم', later: 'لاحقًا', ignored: 'تجاهلته', return: 'ذكرني بالرجعة', no: 'لا', wrong: 'مو مناسب',
 };
 
 type Filter = 'all' | 'alert' | 'no' | 'missed';

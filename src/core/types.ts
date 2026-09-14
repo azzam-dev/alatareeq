@@ -46,6 +46,8 @@ export interface Place {
   lon: number;
   categories: CategoryId[];
   brands: string[];
+  /** وسم OSM اللي حدد نوعه، مثل «shop=supermarket» */
+  kind?: string;
 }
 
 export interface Settings {

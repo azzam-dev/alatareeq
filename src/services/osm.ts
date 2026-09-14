@@ -1,6 +1,7 @@
 import type { BBox, LatLon } from '../core/geo';
 import { BRAND_BY_ID, CATEGORIES } from '../core/lexicon';
 import { escapeRegex } from '../core/normalize';
+import { classifyPlace } from '../core/placeKind';
 import type { CategoryId, Place, SpecificPlace } from '../core/types';
 
 // ——— Overpass: الأماكن حسب الفئة أو البراند ———
@@ -99,14 +100,13 @@ function toPlace(el: OsmElement, brands: { id: string; re: string }[]): Place | 
   const lon = el.lon ?? el.center?.lon;
   const tags = el.tags ?? {};
   if (lat == null || lon == null) return null;
-  const categories = CATEGORIES.filter((c) => c.osm.some(([k, v]) => tags[k] === v)).map((c) => c.id);
   const names = ['name', 'name:ar', 'name:en', 'brand', 'brand:ar', 'brand:en'].map((k) => tags[k]).filter(Boolean);
   const matchedBrands = brands.filter((b) => {
     const re = new RegExp(b.re, 'i');
     return names.some((n) => re.test(n));
   }).map((b) => b.id);
   const name = tags['name:ar'] || tags.name || tags['brand:ar'] || tags.brand || '';
-  return { id: `${el.type}/${el.id}`, name, lat, lon, categories, brands: matchedBrands };
+  return { id: `${el.type}/${el.id}`, name, lat, lon, ...classifyPlace(tags, names), brands: matchedBrands };
 }
 
 // ——— OSRM: المسارات والوقت ———

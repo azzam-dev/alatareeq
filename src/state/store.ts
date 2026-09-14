@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { DEFAULT_SETTINGS, type Reminder, type Settings, type SuppressReason } from '../core/types';
 
 export type LogKind = 'alert' | 'suppressed' | 'missed' | 'arrive' | 'time' | 'passed' | 'trip';
-export type Response = 'go' | 'done' | 'later' | 'ignored' | 'return' | 'no';
+export type Response = 'go' | 'done' | 'later' | 'ignored' | 'return' | 'no' | 'wrong';
 
 export interface LogEntry {
   id: string;
@@ -25,6 +25,8 @@ export interface AppState {
   reminders: Reminder[];
   settings: Settings;
   log: LogEntry[];
+  /** أماكن قال عنها «مو مناسب»: تنستبعد من تذاكير الفئات والبراندات */
+  hiddenPlaces: string[];
   onboarded: boolean;
 }
 
@@ -32,7 +34,7 @@ const KEY = 'alatareeq:v1';
 const LOG_LIMIT = 400;
 
 function load(): AppState {
-  const fallback: AppState = { reminders: [], settings: DEFAULT_SETTINGS, log: [], onboarded: false };
+  const fallback: AppState = { reminders: [], settings: DEFAULT_SETTINGS, log: [], hiddenPlaces: [], onboarded: false };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return fallback;
@@ -41,6 +43,7 @@ function load(): AppState {
       reminders: s.reminders ?? [],
       settings: { ...DEFAULT_SETTINGS, ...s.settings },
       log: s.log ?? [],
+      hiddenPlaces: s.hiddenPlaces ?? [],
       onboarded: s.onboarded ?? false,
     };
   } catch {
@@ -98,9 +101,15 @@ export const store = {
   clearLog() {
     store.set((s) => ({ ...s, log: [] }));
   },
+  hidePlace(placeId: string) {
+    store.set((s) => (s.hiddenPlaces.includes(placeId) ? s : { ...s, hiddenPlaces: [...s.hiddenPlaces, placeId] }));
+  },
+  clearHiddenPlaces() {
+    store.set((s) => ({ ...s, hiddenPlaces: [] }));
+  },
   resetAll() {
     try { localStorage.clear(); } catch { /* تجاهل */ }
-    state = { reminders: [], settings: DEFAULT_SETTINGS, log: [], onboarded: false };
+    state = { reminders: [], settings: DEFAULT_SETTINGS, log: [], hiddenPlaces: [], onboarded: false };
     listeners.forEach((l) => l());
   },
 };

@@ -1,13 +1,16 @@
 import { distanceM } from './geo';
 import type { Place, Reminder, Settings, SuppressReason, Trip } from './types';
 
-/** هل المكان يحقق هدف التذكير؟ */
-export function placeMatches(r: Reminder, place: Place): boolean {
+/**
+ * هل المكان يحقق هدف التذكير؟
+ * hidden: أماكن قال عنها المستخدم «مو مناسب»؛ تنستبعد إلا لو التذكير باسمها الصريح أو موقعها.
+ */
+export function placeMatches(r: Reminder, place: Place, hidden?: ReadonlySet<string>): boolean {
   const t = r.target;
   if (!t) return false;
   switch (t.kind) {
-    case 'category': return t.categories.some((c) => place.categories.includes(c));
-    case 'brand': return place.brands.includes(t.brandId);
+    case 'category': return !hidden?.has(place.id) && t.categories.some((c) => place.categories.includes(c));
+    case 'brand': return place.brands.includes(t.brandId) && (t.brandId.startsWith('name:') || !hidden?.has(place.id));
     case 'place': return place.id === t.place.id || distanceM(place, t.place) < 40;
   }
 }

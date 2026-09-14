@@ -1,4 +1,5 @@
 import { BRAND_BY_ID, CATEGORY_BY_ID } from './lexicon';
+import { placeKind } from './placeKind';
 import type { Place, Reminder, Settings, SuppressReason, Target } from './types';
 
 export function formatDistance(m: number): string {
@@ -37,10 +38,11 @@ export function targetLabel(t: Target | null): string {
   }
 }
 
-export function placeTitle(place: Place): string {
-  if (place.name) return place.name;
-  const c = place.categories[0];
-  return c ? CATEGORY_BY_ID[c].label : 'مكان';
+/** اسم المكان للعرض، مع نوعه قبله لو الاسم ما يدل عليه: «سوبرماركت · الرماية» */
+export function placeTitle(place: Place, sep = ' · '): string {
+  const kind = placeKind(place);
+  if (!place.name) return kind?.label ?? 'مكان';
+  return !kind || kind.named ? place.name : `${kind.label}${sep}${place.name}`;
 }
 
 export function reasonText(reason: SuppressReason, d: { detourSeconds?: number; angle?: number; settings: Settings; notBefore?: number }): string {
@@ -72,5 +74,5 @@ export function whyAlertText(d: { angle: number; detourSeconds: number; approxim
 export function spokenAlert(place: Place, distance: number, detourSeconds: number, rs: Reminder[]): string {
   const dist = distance < 1000 ? `${Math.round(distance / 50) * 50} متر` : `${(distance / 1000).toFixed(1)} كيلو`;
   const detour = detourSeconds < 45 ? 'تحويلة بسيطة' : `تحويلة ${formatMinutes(detourSeconds)}`;
-  return `${placeTitle(place)} بعد ${dist}، ${detour}. عندك: ${itemsText(rs, 2)}`;
+  return `${placeTitle(place, ' ')} بعد ${dist}، ${detour}. عندك: ${itemsText(rs, 2)}`;
 }

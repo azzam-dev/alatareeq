@@ -14,8 +14,12 @@ export function AlertSign({ alert, queued = 0, demo = false }: { alert: ActiveAl
     <div className={`alert ${alert.kind === 'passed' ? 'passed' : ''}`} role={demo ? undefined : 'alertdialog'} aria-live="assertive" aria-label={`${alert.label}: ${alert.title}`}>
       <p className="alert-label">
         <span>{alert.label}{queued > 0 ? ` · +${queued} بالانتظار` : ''}</span>
-        {alert.why && !demo && (
-          <button className="why-btn" onClick={() => setWhy((v) => !v)} aria-expanded={why}>ليش؟</button>
+        {!demo && (alert.why || alert.canHide) && (
+          <span style={{ display: 'flex', gap: 14 }}>
+            {/* رابط صغير مو زر كبير، عشان ما ينضغط بالغلط وأنت تسوق */}
+            {alert.canHide && <button className="why-btn" onClick={() => engine.respond(alert.id, 'wrong')}>مو مناسب</button>}
+            {alert.why && <button className="why-btn" onClick={() => setWhy((v) => !v)} aria-expanded={why}>ليش؟</button>}
+          </span>
         )}
       </p>
       <div className="alert-main">

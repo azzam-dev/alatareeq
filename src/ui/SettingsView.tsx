@@ -8,6 +8,7 @@ import { addSamples } from './samples';
 
 export function SettingsView() {
   const s = useStore((st) => st.settings);
+  const hiddenCount = useStore((st) => st.hiddenPlaces.length);
   const set = (patch: Partial<Settings>) => store.setSettings(patch);
   const [notif, setNotif] = useState(notificationPermission());
   const [geo, setGeo] = useState<string>('—');
@@ -103,6 +104,9 @@ export function SettingsView() {
       <div className="group">
         <div className="setting"><button className="btn block" onClick={addSamples}>أضف تذاكير أمثلة</button></div>
         <div className="setting"><button className="btn block" onClick={() => engine.clearPlaceCache()}>امسح الأماكن المحفوظة</button></div>
+        {hiddenCount > 0 && (
+          <div className="setting"><button className="btn block" onClick={() => store.clearHiddenPlaces()}>أظهر الأماكن اللي قلت عنها «مو مناسب» ({hiddenCount})</button></div>
+        )}
         <div className="setting">
           <button className="btn danger block" onClick={() => { if (confirm('نحذف كل التذاكير والسجل والإعدادات من هالجهاز؟')) { engine.stop(); engine.clearPlaceCache(); store.resetAll(); } }}>
             احذف كل بياناتي

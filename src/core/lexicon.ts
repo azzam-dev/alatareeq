@@ -6,8 +6,15 @@ export interface CategoryDef {
   anyLabel: string;
   /** صيغ مطبّعة، بدون «ال». العبارات متعددة الكلمات مسموحة */
   words: string[];
-  /** وسوم OpenStreetMap اللي تمثل الفئة */
-  osm: [string, string][];
+  /** وسوم OpenStreetMap اللي تمثل الفئة، مع اسم النوع للعرض */
+  osm: [key: string, value: string, label: string][];
+  /** كلمات في اسم المكان تدل على نوعه (مطبّعة)، فما نكتب النوع قبل الاسم */
+  nameWords: string[];
+  /**
+   * كلمات في اسم المكان تناقض الفئة (مطبّعة): وسمه في OSM غلط، مثل «العاب الحسين» موسوم بقالة.
+   * نطابق الكلمة كاملة، فـ«العابدين» ما تنستبعد.
+   */
+  excludeWords: string[];
 }
 
 export const CATEGORIES: CategoryDef[] = [
@@ -16,42 +23,62 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'صيدلية',
     anyLabel: 'أي صيدلية',
     words: ['صيدليه', 'صيدليات', 'فارمسي'],
-    osm: [['amenity', 'pharmacy'], ['shop', 'chemist'], ['healthcare', 'pharmacy']],
+    osm: [['amenity', 'pharmacy', 'صيدلية'], ['shop', 'chemist', 'صيدلية'], ['healthcare', 'pharmacy', 'صيدلية']],
+    nameWords: ['pharmacy', 'pharmacies', 'drugstore'],
+    excludeWords: [],
   },
   {
     id: 'grocery',
     label: 'بقالة',
     anyLabel: 'أي بقالة',
     words: ['بقاله', 'بقالات', 'سوبرماركت', 'سوبر ماركت', 'ماركت', 'تموينات', 'هايبر', 'هايبرماركت', 'سوبر'],
-    osm: [['shop', 'supermarket'], ['shop', 'convenience'], ['shop', 'grocery'], ['shop', 'greengrocer']],
+    osm: [['shop', 'supermarket', 'سوبرماركت'], ['shop', 'convenience', 'بقالة'], ['shop', 'grocery', 'بقالة'], ['shop', 'greengrocer', 'خضار وفواكه']],
+    nameWords: [
+      'اسواق', 'سوق', 'مخابز', 'خضار', 'خضاره', 'خضروات', 'فواكه', 'فاكهه',
+      'market', 'markets', 'supermarket', 'supermarkt', 'hypermarket', 'minimarket', 'mart', 'grocery', 'convenience', 'bakala',
+    ],
+    excludeWords: [
+      'العاب', 'لعب', 'لعبه', 'toys', 'toy', 'games', 'وسايل تعليميه',
+      'رحلات', 'صيد', 'عقاريه', 'عقارات', 'عقار',
+      'اثاث', 'مفروشات', 'furniture', 'هوم سنتر', 'home center', 'home centre',
+      'عطور', 'عطر', 'perfume', 'perfumes', 'جوالات', 'جوال', 'mobile', 'mobiles', 'ملابس', 'ازياء', 'fashion',
+    ],
   },
   {
     id: 'bookstore',
     label: 'مكتبة',
     anyLabel: 'أي مكتبة',
     words: ['مكتبه', 'مكتبات', 'قرطاسيه'],
-    osm: [['shop', 'books'], ['shop', 'stationery']],
+    osm: [['shop', 'books', 'مكتبة'], ['shop', 'stationery', 'قرطاسية']],
+    nameWords: ['books', 'bookstore', 'bookshop', 'library', 'stationery'],
+    excludeWords: [],
   },
   {
     id: 'fuel',
     label: 'محطة وقود',
     anyLabel: 'أي محطة وقود',
     words: ['محطه بنزين', 'محطه وقود', 'بنزينه', 'محطه', 'محطات', 'كازيه'],
-    osm: [['amenity', 'fuel']],
+    osm: [['amenity', 'fuel', 'محطة وقود']],
+    nameWords: ['بنزين', 'وقود', 'station', 'fuel', 'petrol'],
+    excludeWords: [],
   },
   {
     id: 'laundry',
     label: 'مغسلة',
     anyLabel: 'أي مغسلة',
     words: ['مغسله ملابس', 'مغسله', 'دراي كلين', 'مصبغه'],
-    osm: [['shop', 'laundry'], ['shop', 'dry_cleaning']],
+    osm: [['shop', 'laundry', 'مغسلة'], ['shop', 'dry_cleaning', 'مغسلة']],
+    nameWords: ['laundry', 'dry cleaning', 'dry clean'],
+    excludeWords: [],
   },
   {
     id: 'charging',
     label: 'شحن سيارات',
     anyLabel: 'أي محطة شحن',
     words: ['محطه شحن', 'شاحن سيارات', 'شحن سيارات', 'شحن كهربا'],
-    osm: [['amenity', 'charging_station']],
+    osm: [['amenity', 'charging_station', 'شحن سيارات']],
+    nameWords: ['شحن', 'charging', 'charger'],
+    excludeWords: [],
   },
 ];
 
