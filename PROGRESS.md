@@ -1,6 +1,6 @@
 # حالة العمل
 
-آخر تحديث: ١٥ سبتمبر ٢٠٢٦ · الفرع الحالي `feat/mobile` (مبني فوق `fix/places`، بدون commit لتطبيق الجوال)
+آخر تحديث: ١٥ سبتمبر ٢٠٢٦ · الفرع الحالي `feat/mobile` (مبني فوق `fix/places`، ومرفوع)
 
 **الصورة باختصار:** فيه نسختين. **الويب** (Vite في الجذر) MVP مكتمل ومتجمّد. **تطبيق الجوال** (`mobile/`، Expo) هو الاتجاه
 الحالي: يشتغل على iPhone داخل Expo Go بأماكن تجريبية على شارع العليا، والتنبيه والتطبيق مفتوح فقط. المنطق المشترك في
@@ -64,12 +64,10 @@
 
 ### قيد العمل
 
-- **ما فيه كود نص مخلّص.** آخر تعديل: الأغراض بس في `src/core/items.ts` (`splitItems`, `cleanTitle`)، مستخدمة في
-  `TodayScreen.submit` و`samples.ts` و`store.hydrate` و`GoCheckCard` و`engine.confirmGo`. ينتظر تجربة صاحب المشروع على iPhone.
-- **غير محفوظ في git** على `feat/mobile`: مجلد `mobile/` كامل، `src/core/items.ts` و`items.test.ts`، تعديلات
-  `src/core/types.ts` (`donePlace`, `notFoundAt`, `branch`) و`src/core/lexicon.ts` (أغراض بقالة)، `.claude/launch.json`، والتوثيق.
-  صاحب المشروع يسوي commit/push بطلبه فقط.
-- **فروع git:** `master` = `b3ab84a` (قبل إصلاحات ١٣–١٤ سبتمبر). `fix/places` مرفوع وغير مدموج. `feat/mobile` فوقه.
+- **ما فيه كود نص مخلّص.** آخر عمل (١٥ سبتمبر): الأغراض بقاموس المنتجات، البحث عن الفئات، «تم» المجمّع، والإعدادات.
+  كله محفوظ في `fc5094b` على `feat/mobile`، وينتظر تجربة صاحب المشروع على iPhone. commit/push بطلبه فقط.
+- **فروع git:** `master` = `b3ab84a` (قبل إصلاحات ١٣–١٤ سبتمبر). `fix/places` مرفوع وغير مدموج. `feat/mobile` فوقه، مرفوع
+  (`origin/feat/mobile`) وغير مدموج.
   `git stash@{0}` أرشيف قاعدة «البقالة بدليل الاسم» لـ OSM، ما انطبقت لأن الأماكن بتنتقل لـ Google؛ ممكن تنحذف.
 
 ### قرارات
@@ -162,7 +160,7 @@
 
 **ينتظر صاحب المشروع (لا تبدأها بدونه):**
 - تأكيد على iPhone: الصوت «ابي اشتري خبز وزبادي وصامولي»، النصوص القصيرة، استبدال الإشعار والجوال مقفل، والفرع في «تم».
-- commit/push لـ `feat/mobile` ودمج الفروع في `master`.
+- دمج `fix/places` و`feat/mobile` في `master` (الاثنين مرفوعين وغير مدموجين).
 - **place ID من Google** (مجاني): مفتاح في `mobile/.env.local` باسم `EXPO_PUBLIC_GOOGLE_PLACES_KEY` مقيّد على Places API (New)
   بحد يومي. الخطة: وقت التنبيه Text Search IDs Only بالاسم داخل ١٥٠ م من الموقع ← `googlePlaceId` في `SpecificPlace`
   ← «اذهب» بـ `destination_place_id` و«افتح في خرائط Google» بـ `query_place_id`. المفتاح داخل التطبيق مؤقتًا لين يجي السيرفر.
