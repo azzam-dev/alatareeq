@@ -114,9 +114,15 @@ describe('parseReminder', () => {
   });
 
   it('ما فيه مكان ولا وقت', () => {
-    const r = p('ذكرني أسحب فلوس من الصراف');
+    const r = p('ذكرني أكلم أبوي');
     expect(r.needsTarget).toBe(true);
-    expect(r.title).toBe('أسحب فلوس من الصراف');
+    expect(r.title).toBe('أكلم أبوي');
+  });
+
+  it('الصراف فئة إضافية', () => {
+    const r = p('ذكرني أسحب فلوس من الصراف');
+    expect(r.target).toEqual({ kind: 'category', categories: ['atm'] });
+    expect(r.title).toBe('أسحب فلوس');
   });
 
   it('وقت بدون فترة: أقرب وقت قادم', () => {

@@ -169,7 +169,7 @@ export function ReminderEditor({ draft, onClose }: { draft: Draft; onClose: () =
             {mode === 'category' && (
               <>
                 <div className="chips">
-                  {CATEGORIES.map((c) => (
+                  {CATEGORIES.filter((c) => !c.more || cats.includes(c.id)).map((c) => (
                     <button key={c.id} className="chip" aria-pressed={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>
                       <CategoryIcon id={c.id} size={16} /> {c.label}
                     </button>

@@ -1,6 +1,10 @@
+/** حروف اتجاه ومسافات مخفية: iPhone يحطها أحيانًا مع النص العربي («‏راح» ما تطابق «راح») */
+export const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
+
 /** توحيد النص العربي للمطابقة فقط (العرض يستخدم النص الأصلي) */
 export function normalize(input: string): string {
   return input
+    .replace(INVISIBLE, '')
     .replace(/[ً-ٰٟـ]/g, '') // تشكيل وتطويل
     .replace(/[أإآٱ]/g, 'ا') // أ إ آ ٱ ← ا
     .replace(/ى/g, 'ي') // ى ← ي

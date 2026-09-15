@@ -1,4 +1,10 @@
-export type CategoryId = 'pharmacy' | 'grocery' | 'bookstore' | 'fuel' | 'laundry' | 'charging';
+export type CategoryId =
+  | 'pharmacy' | 'grocery' | 'bookstore' | 'fuel' | 'laundry' | 'charging'
+  // فئات إضافية تطلع بالبحث في المحرر (`CategoryDef.more`)
+  | 'toys' | 'electronics' | 'mobile' | 'clothes' | 'shoes' | 'perfume' | 'jewelry' | 'florist' | 'gifts' | 'houseware'
+  | 'furniture' | 'hardware' | 'sports' | 'pets' | 'bakery' | 'sweets' | 'cafe' | 'restaurant' | 'atm' | 'bank' | 'clinic'
+  | 'hospital' | 'optician' | 'barber' | 'beauty' | 'carWash' | 'carParts' | 'carRepair' | 'post' | 'tailor' | 'butcher'
+  | 'mall' | 'gym';
 
 /** pass = عند المرور (الافتراضي)، arrive = عند الوصول، time = في وقت محدد */
 export type TriggerKind = 'pass' | 'arrive' | 'time';
@@ -8,6 +14,8 @@ export interface SpecificPlace {
   name: string;
   lat: number;
   lon: number;
+  /** يميّز الفرع عن فروع نفس الاسم: الحي («حي الملك فهد») أو الشارع */
+  branch?: string;
 }
 
 export type Target =
@@ -30,6 +38,10 @@ export interface Reminder {
   status: 'active' | 'done';
   createdAt: number;
   doneAt?: number;
+  /** المكان اللي خلّصت منه: «اذهب» ثم «تم»، أو «تم» على تنبيه الوصول */
+  donePlace?: SpecificPlace;
+  /** آخر مكان رحت له وما حصلت فيه الغرض. معلومة بس: التنبيه يبقى بأي فرع */
+  notFoundAt?: { place: SpecificPlace; at: number };
   /** ضغط «لاحقًا» في هذا المشوار */
   snoozedTripId?: string;
   /** للتذاكير الزمنية: «لاحقًا» يأجلها لهذا الوقت */
@@ -46,6 +58,8 @@ export interface Place {
   lon: number;
   categories: CategoryId[];
   brands: string[];
+  /** الحي أو الشارع، يميّز الفرع */
+  branch?: string;
   /** وسم OSM اللي حدد نوعه، مثل «shop=supermarket» */
   kind?: string;
 }

@@ -41,7 +41,8 @@ export const Icon = {
 };
 
 export function CategoryIcon({ id, size = 18 }: { id: CategoryId; size?: number }) {
-  const C = Icon[id];
+  // الفئات الإضافية بدون أيقونة خاصة
+  const C = (Icon as Record<string, (p: { size?: number }) => ReactNode>)[id] ?? Icon.tag;
   return <C size={size} />;
 }
 

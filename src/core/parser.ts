@@ -1,6 +1,6 @@
 import {
   ARRIVE_VERBS, BRANDS, CATEGORIES, COMMANDS, CONDITIONALS, CONNECTORS, ITEM_CATEGORIES, PASS_VERBS,
-  PLACE_MODIFIERS, PREPS, ROUTE_PHRASES, TASK_VERBS,
+  PLACE_MODIFIERS, PREPS, ROUTE_PHRASES, TASK_VERBS, type CategoryDef,
 } from './lexicon';
 import { normalize, stems, tokenize, type Tok } from './normalize';
 import { parseTime } from './time';
@@ -62,15 +62,21 @@ function placeAt(toks: Tok[], i: number, allowFree: boolean): PlaceHit | null {
     if (m) return { target: { kind: 'brand', brandId: b.id, label: b.label }, match: { start: i, end: m.end } };
   }
 
+  // أطول اسم فئة يغلب: «مغسلة سيارات» مو «مغسلة». البضاعة («ألعاب») فئة بعد «محل» بس، ولحالها غرض
+  let best: { c: CategoryDef; m: Match } | null = null;
   for (const c of CATEGORIES) {
-    const m = matchPhraseAt(toks, start, c.words);
-    if (!m) continue;
-    // «مكتبة الجامعة»: فئة + اسم معرّف ← اسم مكان حر
+    const m = matchPhraseAt(toks, start, start > i && c.goods ? [...c.words, ...c.goods] : c.words);
+    if (m && (!best || m.end > best.m.end)) best = { c, m };
+  }
+  if (best) {
+    const { c, m } = best;
+    // «مكتبة الجامعة»: فئة + اسم معرّف ← اسم مكان حر.
+    // الفئات الإضافية أسماؤها غالبًا بدون «ال»: «كافيه دوز»، «صراف الراجحي»
     const extra: number[] = [];
     let k = m.end;
     while (k < toks.length && extra.length < 3) {
       const t = toks[k].norm;
-      if (!t.startsWith('ال') || isStop(t) || isItemWord(t) || parseTime([toks[k]], new Date())) break;
+      if ((!t.startsWith('ال') && !c.more) || isStop(t) || isItemWord(t) || parseTime([toks[k]], new Date())) break;
       extra.push(k++);
     }
     if (extra.length) {
