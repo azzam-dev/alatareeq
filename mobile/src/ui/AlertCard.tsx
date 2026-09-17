@@ -5,8 +5,6 @@ import { C, ROW } from './theme';
 
 const ACTIONS: Record<ActiveAlert['kind'], { action: string; label: string }[]> = {
   pass: [{ action: 'go', label: 'اذهب' }, { action: 'done', label: 'تم' }, { action: 'later', label: 'لاحقًا' }],
-  arrive: [{ action: 'done', label: 'تم' }, { action: 'later', label: 'لاحقًا' }],
-  time: [{ action: 'done', label: 'تم' }, { action: 'later', label: 'بعد ربع ساعة' }],
   passed: [{ action: 'return', label: 'ذكرني بالرجعة' }, { action: 'no', label: 'لا' }],
 };
 

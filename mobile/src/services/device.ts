@@ -11,8 +11,6 @@ type ActionHandler = (alertId: string, action: string) => void;
 /** أزرار كل نوع تنبيه (نفس أزرار بطاقة التنبيه داخل التطبيق) */
 const CATEGORIES: Record<string, { identifier: string; buttonTitle: string; foreground?: boolean }[]> = {
   pass: [{ identifier: 'go', buttonTitle: 'اذهب', foreground: true }, { identifier: 'done', buttonTitle: 'تم' }, { identifier: 'later', buttonTitle: 'لاحقًا' }],
-  arrive: [{ identifier: 'done', buttonTitle: 'تم' }, { identifier: 'later', buttonTitle: 'لاحقًا' }],
-  time: [{ identifier: 'done', buttonTitle: 'تم' }, { identifier: 'later', buttonTitle: 'بعد ربع ساعة' }],
   passed: [{ identifier: 'return', buttonTitle: 'ذكرني بالرجعة' }, { identifier: 'no', buttonTitle: 'لا' }],
 };
 
@@ -20,7 +18,7 @@ const CATEGORIES: Record<string, { identifier: string; buttonTitle: string; fore
  * والتطبيق مفتوح بطاقة التنبيه تكفي، فالإشعار ما يطلع كبانر إلا بالخلفية
  * أو لو طلبناه صراحة (زر «جرّب إشعار»). يرجع دالة إلغاء الاشتراك.
  */
-export function setupNotifications(onAction: ActionHandler): () => void {
+export function setupNotifications(onAction: ActionHandler, onOpenNotes: () => void): () => void {
   try {
     Notifications.setNotificationHandler({
       handleNotification: async (n) => {
@@ -40,6 +38,7 @@ export function setupNotifications(onAction: ActionHandler): () => void {
 
   try {
     const sub = Notifications.addNotificationResponseReceivedListener((r) => {
+      if (r.notification.request.content.data?.kind === DEADLINE_KIND) { onOpenNotes(); return; }
       const alertId = r.notification.request.content.data?.alertId;
       if (typeof alertId !== 'string') return;
       onAction(alertId, r.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER ? 'open' : r.actionIdentifier);
@@ -105,6 +104,39 @@ export function dismissStaleNotifications(activeAlertIds: string[]): Promise<voi
       if (typeof alertId === 'string' && alertId !== 'test' && !activeAlertIds.includes(alertId)) {
         await Notifications.dismissNotificationAsync(n.request.identifier);
       }
+    }
+  });
+}
+
+// ——— تنبيه قبل الموعد ———
+
+const DEADLINE_KIND = 'deadline';
+
+export interface DeadlineNotification {
+  /** وقت الإشعار */
+  at: number;
+  /** الموعد و«ذكرني»، ويميّز الإشعار */
+  key: string;
+  title: string;
+  body: string;
+}
+
+/**
+ * يلغي كل إشعارات المواعيد المجدولة ويجدولها من جديد من التذاكير الحالية.
+ * يغطي الإضافة والتعديل والحذف و«تم» و«انتهى» و«رجّعها» بدون منطق لكل حالة.
+ * بدون أزرار، ويطلع كبانر حتى والتطبيق مفتوح لأن ما له بطاقة داخل التطبيق.
+ */
+export function syncDeadlineNotifications(list: DeadlineNotification[]): Promise<void> {
+  return serial(async () => {
+    for (const n of await Notifications.getAllScheduledNotificationsAsync()) {
+      if (n.content.data?.kind === DEADLINE_KIND) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+    for (const n of list) {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `${DEADLINE_KIND}:${n.key}`,
+        content: { title: n.title, body: n.body, sound: true, data: { kind: DEADLINE_KIND, forceShow: true } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: n.at },
+      });
     }
   });
 }

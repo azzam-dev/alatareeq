@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupDone } from './doneGroups';
+import { expiredReminders, groupDone, groupDoneBy } from './doneGroups';
 import type { Reminder, SpecificPlace } from './types';
 
 // الثلاثاء ١٥ سبتمبر ٢٠٢٦، الساعة ٦ مساءً
@@ -49,5 +49,56 @@ describe('«تم» مجمّع ومقسّم بالأيام', () => {
   it('التذاكير النشطة ما تدخل', () => {
     const active: Reminder = { ...done('a', 'خبز', at(15, 10)), status: 'active' };
     expect(groupDone([active], NOW)).toEqual({ today: [], yesterday: [], older: [] });
+  });
+});
+
+describe('فرز «جبتها» بالفئة وبالمكان', () => {
+  const kunooz: SpecificPlace = { id: 'p3', name: 'صيدلية كنوز', lat: 0, lon: 0 };
+  const withTarget = (r: Reminder, target: Reminder['target']): Reminder => ({ ...r, target });
+  const rs = [
+    withTarget(done('a', 'خبز', at(15, 17, 54), panda), { kind: 'category', categories: ['grocery'] }),
+    withTarget(done('b', 'شامبو', at(15, 17, 54), panda), { kind: 'category', categories: ['pharmacy', 'grocery'] }),
+    withTarget(done('c', 'بنادول', at(14, 21), kunooz), { kind: 'category', categories: ['pharmacy'] }),
+    withTarget(done('d', 'دفتر', at(14, 20)), { kind: 'brand', brandId: 'jarir', label: 'جرير' }),
+    { ...done('e', 'قديم', at(10, 9), panda), status: 'active' as const },
+  ];
+  const view = (ss: { title: string; groups: { title: string }[] }[]) => ss.map((s) => [s.title, titles(s.groups)]);
+
+  it('بالمكان: الزيارة صف واحد، و«بدون مكان» آخر شي', () => {
+    expect(view(groupDoneBy(rs, 'place'))).toEqual([
+      ['هايبر بنده', ['خبز، شامبو']],
+      ['صيدلية كنوز', ['بنادول']],
+      ['بدون مكان', ['دفتر']],
+    ]);
+  });
+  it('بالفئة: كل غرض لحاله، والغرض بفئتين تحت فئة المكان اللي خلّصته منه', () => {
+    const placeCategories = (p: SpecificPlace) => (p.id === 'p1' ? ['grocery' as const] : undefined);
+    expect(view(groupDoneBy(rs, 'category', placeCategories))).toEqual([
+      ['بقالة', ['خبز', 'شامبو']],
+      ['صيدلية', ['بنادول']],
+      ['جرير', ['دفتر']],
+    ]);
+  });
+  it('بالفئة بدون فئة المكان: أول فئة', () => {
+    expect(view(groupDoneBy(rs, 'category'))).toEqual([
+      ['بقالة', ['خبز']],
+      ['صيدلية', ['شامبو', 'بنادول']],
+      ['جرير', ['دفتر']],
+    ]);
+  });
+  it('المنتهية ما تدخل', () => {
+    expect(groupDoneBy([{ ...done('x', 'عيش', at(15, 8)), expiredAt: at(15, 8) }], 'place')).toEqual([]);
+  });
+});
+
+describe('«انتهى موعدها وما جبتها»', () => {
+  const expired = (id: string, expiredAt: number): Reminder => ({ ...done(id, id, expiredAt), expiredAt });
+  it('منفصلة عن «جبتها»، والأحدث أول', () => {
+    const rs = [expired('هدية', at(14, 9)), done('a', 'خبز', at(15, 10)), expired('عيش', at(15, 8))];
+    expect(titles(groupDone(rs, NOW).today)).toEqual(['خبز']);
+    expect(expiredReminders(rs).map((r) => r.id)).toEqual(['عيش', 'هدية']);
+  });
+  it('النشطة ما تدخل حتى لو فات موعدها', () => {
+    expect(expiredReminders([{ ...expired('عيش', at(15, 8)), status: 'active' }])).toEqual([]);
   });
 });

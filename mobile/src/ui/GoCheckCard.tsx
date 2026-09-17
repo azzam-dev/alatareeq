@@ -4,7 +4,7 @@ import { reminderItems } from '../../../src/core/items';
 import { engine } from '../services/engine';
 import { store, useStore, type GoResult, type PendingGo } from '../state/store';
 import { placeWithBranch } from './format';
-import { Btn } from './parts';
+import { Btn, HelpTitle } from './parts';
 import { C, S } from './theme';
 
 interface Row { key: string; reminderId: string; item: string }
@@ -39,7 +39,7 @@ export function GoCheckCard({ pending }: { pending: PendingGo }) {
 
   return (
     <View style={styles.card} accessibilityRole="alert">
-      <Text style={S.sub}>رحت له؟</Text>
+      <HelpTitle title="رحت له؟" help="اللي ما حصلته يبقى، وننبهك فيه بأي فرع." style={S.sub} />
       <Text style={[S.h2, { fontSize: 21 }]}>{placeWithBranch(pending.place)}</Text>
 
       {rows.length === 1 ? (
@@ -66,7 +66,6 @@ export function GoCheckCard({ pending }: { pending: PendingGo }) {
           <Btn title="حفظ" kind="primary" onPress={() => engine.confirmGo(foundFor(checked))} />
         </>
       )}
-      <Text style={S.sub}>اللي ما حصلته يبقى، وننبهك فيه بأي فرع.</Text>
     </View>
   );
 }
@@ -80,10 +79,7 @@ export function GoResultToast({ result }: { result: GoResult }) {
         <Text style={[S.text, { color: C.brand, fontWeight: '700' }]}>✓ حصلت: {result.done.join('، ')}</Text>
       )}
       {result.notDone.length > 0 && (
-        <>
-          <Text style={[S.text, { color: C.warn, fontWeight: '700' }]}>⏳ باقي: {result.notDone.join('، ')}</Text>
-          <Text style={S.sub}>بنذكرك فيه بأي فرع.</Text>
-        </>
+        <Text style={[S.text, { color: C.warn, fontWeight: '700' }]}>⏳ باقي: {result.notDone.join('، ')}</Text>
       )}
       <Btn title="تمام" onPress={() => store.setGoResult(null)} />
     </View>

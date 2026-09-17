@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchCategories } from './categorySearch';
+import { categoryPicker, searchCategories } from './categorySearch';
 import { parseReminder } from './parser';
 import { classifyPlace } from './placeKind';
 
@@ -51,5 +51,31 @@ describe('الفئات الإضافية في الجملة والأماكن', () 
   it('مكان OSM بوسم فئة إضافية', () => {
     expect(classifyPlace({ shop: 'toys', name: 'Toys R Us' }).categories).toEqual(['toys']);
     expect(classifyPlace({ amenity: 'atm' }).categories).toEqual(['atm']);
+  });
+});
+
+describe('قائمة اختيار الفئة', () => {
+  const labels = (cs: { label: string }[]) => cs.map((c) => c.label);
+
+  it('المناسبة لأغراض التذكير أول، وما تتكرر في الباقي', () => {
+    const shampoo = categoryPicker('شامبو', '');
+    expect(labels(shampoo.suggested)).toEqual(['صيدلية', 'بقالة']);
+    expect(labels(shampoo.rest).slice(0, 4)).toEqual(['مكتبة', 'محطة وقود', 'مغسلة', 'شحن سيارات']);
+    expect(labels(categoryPicker('هدية، ورد', '').suggested)).toEqual(['ورد', 'هدايا']);
+    expect(categoryPicker('أتصل على أبوي', '').suggested).toEqual([]);
+  });
+  it('الأساسية أول ثم الإضافية أبجديًا، وكل الفئات موجودة', () => {
+    const { rest } = categoryPicker('', '');
+    expect(labels(rest).slice(0, 10)).toEqual([
+      'صيدلية', 'بقالة', 'مكتبة', 'محطة وقود', 'مغسلة', 'شحن سيارات', 'أثاث', 'أحذية', 'أدوات منزلية', 'إلكترونيات',
+    ]);
+    expect(rest).toHaveLength(39);
+  });
+  it('البحث بدون أقسام، وحرف واحد ما يدوّر', () => {
+    expect(labels(categoryPicker('شامبو', 'شامبو').rest)).toEqual(['صيدلية', 'بقالة']);
+    expect(categoryPicker('شامبو', 'شامبو').suggested).toEqual([]);
+    expect(labels(categoryPicker('', 'مغسلة').rest)).toEqual(['مغسلة', 'مغسلة سيارات']);
+    expect(categoryPicker('', 'النهدي').rest).toEqual([]);
+    expect(labels(categoryPicker('شامبو', 'ص').suggested)).toEqual(['صيدلية', 'بقالة']);
   });
 });

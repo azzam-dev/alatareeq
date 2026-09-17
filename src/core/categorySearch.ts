@@ -1,5 +1,6 @@
 import { CATEGORIES, ITEM_CATEGORIES, type CategoryDef } from './lexicon';
 import { normalize } from './normalize';
+import { categoriesFor } from './reminderInput';
 
 /** الكلمة وصيغتها بدون «ال»: «الصيدلية» تطابق «صيدلية» */
 const forms = (t: string) => (t.startsWith('ال') && t.length > 3 ? [t, t.slice(2)] : [t]);
@@ -34,4 +35,27 @@ export function searchCategories(query: string, limit = 6): CategoryDef[] {
     .sort((a, b) => a.score - b.score)
     .slice(0, limit)
     .map((x) => x.c);
+}
+
+/** قائمة اختيار الفئة في المحرر: المناسبة لأغراض التذكير، وباقي الفئات */
+export interface CategoryPickerList {
+  suggested: CategoryDef[];
+  rest: CategoryDef[];
+}
+
+const collate = (a: string, b: string) => normalize(a).localeCompare(normalize(b), 'ar');
+
+/**
+ * بدون بحث: المناسبة لعنوان التذكير أول («شامبو» ← صيدلية، بقالة)، وبعدها الباقي: الست الأساسية ثم الإضافية أبجديًا.
+ * مع بحث (حرفين أو أكثر): نتيجة `searchCategories` كاملة بترتيبها، بدون أقسام.
+ */
+export function categoryPicker(title: string, query: string): CategoryPickerList {
+  if (normalize(query).replace(/\s+/g, '').length >= 2) return { suggested: [], rest: searchCategories(query, CATEGORIES.length) };
+  const ids = new Set(categoriesFor(title));
+  const suggested = CATEGORIES.filter((c) => ids.has(c.id));
+  const others = CATEGORIES.filter((c) => !ids.has(c.id));
+  return {
+    suggested,
+    rest: [...others.filter((c) => !c.more), ...others.filter((c) => c.more).sort((a, b) => collate(a.label, b.label))],
+  };
 }

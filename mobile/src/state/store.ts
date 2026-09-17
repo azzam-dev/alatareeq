@@ -1,12 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
-import { cleanTitle } from '../../../src/core/items';
-import { DEFAULT_SETTINGS, type Reminder, type Settings, type SpecificPlace, type SuppressReason } from '../../../src/core/types';
-
-export type LogKind = 'alert' | 'suppressed' | 'missed' | 'arrive' | 'time' | 'passed' | 'trip';
-export type Response = 'go' | 'done' | 'later' | 'ignored' | 'return' | 'no';
-/** جواب «خلصت؟» بعد «اذهب» */
-export type Outcome = 'done' | 'partial' | 'notDone';
+import { cleanTitle, splitItems } from '../../../src/core/items';
+import { DEFAULT_SETTINGS, type Reminder, type Settings, type SpecificPlace } from '../../../src/core/types';
 
 /** نتيجة «خلصت؟» نعرضها لثواني: وش حصلت ووش باقي */
 export interface GoResult {
@@ -24,29 +19,9 @@ export interface PendingGo {
   at: number;
 }
 
-export interface LogEntry {
-  id: string;
-  t: number;
-  kind: LogKind;
-  text: string;
-  placeName?: string;
-  reminderIds: string[];
-  reminderTitles: string[];
-  detourSeconds?: number;
-  approximate?: boolean;
-  distance?: number;
-  reason?: SuppressReason;
-  alertId?: string;
-  response?: Response;
-  outcome?: Outcome;
-  /** من المشوار التجريبي */
-  sim?: boolean;
-}
-
 export interface AppState {
   reminders: Reminder[];
   settings: Settings;
-  log: LogEntry[];
   pendingGo: PendingGo | null;
   /** مؤقت، ما ينحفظ على الجهاز */
   goResult: GoResult | null;
@@ -58,9 +33,32 @@ export interface AppState {
 const KEY = 'alatareeq:v1';
 /** نسخة تنظيف العناوين (`cleanTitle`). ٢: حروف الاتجاه المخفية من iPhone. ٣: الكلام قبل الفعل («خليني») والفواصل بدل «و». ٤: قاموس المنتجات */
 const ITEM_TITLES = 4;
-const LOG_LIMIT = 400;
+/** ١: كل التذاكير «عند المرور»، والوقت صار آخر موعد */
+const PASS_ONLY = 1;
+/** ١: كل غرض تذكير مستقل بأولويته */
+const ONE_ITEM = 1;
 
-let state: AppState = { reminders: [], settings: DEFAULT_SETTINGS, log: [], pendingGo: null, goResult: null, onboarded: false, hydrated: false };
+/** «عند الوصول» يصير مرور بنفس المكان، و«بوقت» يصير آخر موعد */
+function toPass(r: Reminder): Reminder {
+  if (r.trigger === 'pass') return r;
+  return {
+    ...r,
+    trigger: 'pass',
+    deadline: r.deadline ?? (r.trigger === 'time' ? r.at : undefined),
+    at: undefined,
+    snoozedUntil: undefined,
+  };
+}
+
+/** تذكير نشط فيه أكثر من غرض («خبز، حليب») يصير تذكير لكل غرض بنفس المحل والموعد */
+function splitReminder(r: Reminder): Reminder[] {
+  if (r.status !== 'active') return [r];
+  const items = splitItems(r.title);
+  if (items.length < 2) return [r];
+  return items.map((title) => ({ ...r, id: uid(), title, priority: 'normal' }));
+}
+
+let state: AppState = { reminders: [], settings: DEFAULT_SETTINGS, pendingGo: null, goResult: null, onboarded: false, hydrated: false };
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -71,8 +69,9 @@ function emit() {
 function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { reminders, settings, log, pendingGo, onboarded } = state;
-    AsyncStorage.setItem(KEY, JSON.stringify({ reminders, settings, log, pendingGo, onboarded, itemTitles: ITEM_TITLES })).catch(() => undefined);
+    const { reminders, settings, pendingGo, onboarded } = state;
+    AsyncStorage.setItem(KEY, JSON.stringify({ reminders, settings, pendingGo, onboarded, itemTitles: ITEM_TITLES, passOnly: PASS_ONLY, oneItem: ONE_ITEM }))
+      .catch(() => undefined);
   }, 150);
 }
 
@@ -93,16 +92,31 @@ export const store = {
     try {
       const raw = await AsyncStorage.getItem(KEY);
       if (raw) {
-        const s = JSON.parse(raw) as Partial<AppState> & { itemTitles?: unknown };
+        const s = JSON.parse(raw) as Partial<AppState> & { itemTitles?: unknown; passOnly?: unknown; oneItem?: unknown };
+        let reminders = s.reminders ?? [];
         // مرة لكل نسخة تنظيف: تذاكير انحفظت بالكلام كامل («راح اشتري خبز») تصير بالأغراض بس
         const clean = s.itemTitles !== ITEM_TITLES;
-        migrated = clean && !!s.reminders?.length;
+        if (clean) reminders = reminders.map((r) => ({ ...r, title: cleanTitle(r.title) }));
+        const passOnly = s.passOnly !== PASS_ONLY;
+        if (passOnly) reminders = reminders.map(toPass);
+        let pendingGo = s.pendingGo ?? null;
+        const oneItem = s.oneItem !== ONE_ITEM;
+        if (oneItem) {
+          const split = new Set<string>();
+          reminders = reminders.flatMap((r) => {
+            const out = splitReminder(r);
+            if (out.length > 1) split.add(r.id);
+            return out;
+          });
+          // «رحت له؟» ينتظر تذاكير انقسمت: ما نقدر نربط أجوبته بالتذاكير الجديدة
+          if (pendingGo?.reminderIds.some((id) => split.has(id))) pendingGo = null;
+        }
+        migrated = (clean || passOnly || oneItem) && reminders.length > 0;
         state = {
           ...state,
-          reminders: clean ? (s.reminders ?? []).map((r) => ({ ...r, title: cleanTitle(r.title) })) : s.reminders ?? [],
+          reminders,
           settings: { ...DEFAULT_SETTINGS, ...s.settings },
-          log: s.log ?? [],
-          pendingGo: s.pendingGo ?? null,
+          pendingGo,
           onboarded: s.onboarded ?? false,
         };
       }
@@ -128,29 +142,15 @@ export const store = {
   setSettings(patch: Partial<Settings>) {
     store.set((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
   },
-  log(entry: Omit<LogEntry, 'id' | 't'> & { t?: number }) {
-    const e: LogEntry = { id: uid(), t: Date.now(), ...entry };
-    store.set((s) => ({ ...s, log: [e, ...s.log].slice(0, LOG_LIMIT) }));
-    return e;
-  },
-  setLogResponse(alertId: string, response: Response) {
-    store.set((s) => ({ ...s, log: s.log.map((l) => (l.alertId === alertId ? { ...l, response } : l)) }));
-  },
-  setLogOutcome(alertId: string, outcome: Outcome) {
-    store.set((s) => ({ ...s, log: s.log.map((l) => (l.alertId === alertId ? { ...l, outcome } : l)) }));
-  },
   setPendingGo(pendingGo: PendingGo | null) {
     store.set((s) => ({ ...s, pendingGo }));
   },
   setGoResult(goResult: GoResult | null) {
     store.set((s) => ({ ...s, goResult }));
   },
-  clearLog() {
-    store.set((s) => ({ ...s, log: [] }));
-  },
   resetAll() {
     AsyncStorage.removeItem(KEY).catch(() => undefined);
-    state = { reminders: [], settings: DEFAULT_SETTINGS, log: [], pendingGo: null, goResult: null, onboarded: false, hydrated: true };
+    state = { reminders: [], settings: DEFAULT_SETTINGS, pendingGo: null, goResult: null, onboarded: false, hydrated: true };
     emit();
   },
 };

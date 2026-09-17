@@ -24,9 +24,21 @@ export type Target =
   | { kind: 'brand'; brandId: string; label: string }
   | { kind: 'place'; place: SpecificPlace };
 
+/** أولوية الغرض. غيابها = عادية (تذاكير الويب والقديمة) */
+export type Priority = 'high' | 'normal' | 'low';
+
+/**
+ * متى نذكره قبل آخر موعد. بساعة: قبل ساعة (الافتراضي) أو ٣ ساعات أو يوم؛ طول اليوم: ٩ الصبح (الافتراضي)
+ * أو ٩ الليلة اللي قبل. `none` بدون إشعار. الخيار اللي ما يناسب نوع الموعد يرجع للافتراضي.
+ */
+export type RemindBefore = 'hour' | 'hours3' | 'day' | 'morning' | 'eve' | 'none';
+
 export interface Reminder {
   id: string;
   title: string;
+  priority?: Priority;
+  /** غيابه = الافتراضي */
+  remindBefore?: RemindBefore;
   target: Target | null;
   trigger: TriggerKind;
   /** وقت التنبيه لتريغر الوقت */
@@ -38,6 +50,8 @@ export interface Reminder {
   status: 'active' | 'done';
   createdAt: number;
   doneAt?: number;
+  /** فات موعده وضغط «انتهى» وما جابه (مع `status: 'done'`) */
+  expiredAt?: number;
   /** المكان اللي خلّصت منه: «اذهب» ثم «تم»، أو «تم» على تنبيه الوصول */
   donePlace?: SpecificPlace;
   /** آخر مكان رحت له وما حصلت فيه الغرض. معلومة بس: التنبيه يبقى بأي فرع */

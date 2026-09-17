@@ -1,23 +1,25 @@
-import { cleanTitle } from '../../../src/core/items';
+import { targetLabel } from '../../../src/core/compose';
 import { parseReminder } from '../../../src/core/parser';
+import { toReminderInputs } from '../../../src/core/reminderInput';
 import { store, uid } from '../state/store';
 
 export const EXAMPLES = [
-  'ذكرني إذا مريت على صيدلية أشتري دواء',
-  'ذكرني أشتري شامبو',
-  'ذكرني إذا مريت على جرير أشتري كتاب Java',
+  'ابي اشتري بنادول وشامبو',
+  'ذكرني أشتري خبز وحليب بكرة',
+  'ذكرني إذا مريت على جرير أشتري دفتر',
   'لو مريت على محطة بنزين أعبي السيارة',
-  'ذكرني لما أوصل البقالة أشتري حليب',
 ];
 
 /** نضيف الأمثلة عن طريق المحلل نفسه، عشان تشوف كيف يفهم الجمل */
 export function addSamples() {
   const now = Date.now();
   EXAMPLES.forEach((raw, i) => {
-    const p = parseReminder(raw);
-    store.addReminder({
-      id: uid(), title: cleanTitle(p.title), trigger: p.trigger, target: p.target, at: p.at, notBefore: p.notBefore,
-      deadline: p.deadline, status: 'active', createdAt: now - i, raw,
-    });
+    for (const input of toReminderInputs(parseReminder(raw), raw)) {
+      if (input.needsPlace) continue;
+      store.addReminder({
+        id: uid(), title: input.title || targetLabel(input.target), trigger: 'pass', target: input.target, deadline: input.deadline,
+        priority: input.priority, status: 'active', createdAt: now - i, raw,
+      });
+    }
   });
 }

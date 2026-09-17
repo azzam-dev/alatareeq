@@ -17,6 +17,8 @@ export interface ParsedReminder {
   inferred: boolean;
   /** ما عرفنا المكان ولا الوقت: المحرر يطلب من المستخدم يحدد */
   needsTarget: boolean;
+  /** الوقت اللي انقال فيه ساعة («الساعة ٥»)، مو يوم بس («بكرة») */
+  hasClock?: boolean;
 }
 
 interface Match { start: number; end: number } // end حصري
@@ -186,6 +188,7 @@ export function parseReminder(text: string, now: Date = new Date()): ParsedRemin
   }
 
   const out: ParsedReminder = { title, trigger: 'pass', target, inferred, needsTarget: false };
+  if (timeMatch) out.hasClock = timeMatch.hasClock;
   if (target) {
     out.trigger = trigger === 'arrive' ? 'arrive' : 'pass';
     if (timeMatch) {

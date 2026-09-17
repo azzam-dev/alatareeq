@@ -6,6 +6,8 @@ export const C = {
   ink: '#1C211F',
   sub: '#5F6763',
   line: '#E3DFD6',
+  // رمادي يبان على الأبيض (نقطة الأولوية المنخفضة)
+  mute: '#8C938F',
   soft: '#ECE9E2',
   brand: '#0F6B4F',
   brandSoft: '#E1F0E9',
