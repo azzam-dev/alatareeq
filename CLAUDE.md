@@ -79,6 +79,10 @@ Expo SDK 57 · React Native 0.86 · TypeScript (strict) · بدون خريطة. 
 **النشر:** عدّلت ملف في `src/core` تستخدمه دالة؟ شغّل `npm run functions` ثم انشر الدالة وملفاتها المشتركة بأسماء `../_shared/<الملف>.ts`
 (ما فيه Supabase CLI على الجهاز؛ النشر من أداة Supabase). ملفات الترحيل في `supabase/migrations/` نسخة من اللي انطبق، مو تُطبّق لحالها.
 
+**الموقع (Vercel):** نسخة الجوال نفسها تنبني كموقع من GitHub (كل push على `main`). الإعدادات في `mobile/vercel.json`، ومتغيرات
+Supabase العامة في `mobile/.env.production` (داخل git عمدًا، **لا تحط فيه مفتاح سري**). مشروع Vercel لازم Root Directory = `mobile` مع
+«Include files outside the root directory»، وإلا يبني الويب القديم أو يفشل على `../src/core`. تجربة البناء محليًا: `npx expo export -p web` داخل `mobile/`.
+
 ```bash
 npm --prefix mobile start        # خادم Expo لجوال صاحب المشروع (Expo Go، نفس شبكة Wi-Fi)
 npm --prefix mobile run web      # نفس التطبيق في المتصفح للتحقق من الواجهة والمحرك
@@ -97,7 +101,7 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
 | `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
-| `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٣٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
+| `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٩٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
 | `src/ui/GoCheckCard.tsx` | «رحت له؟» بعلامة صح لكل غرض (من `src/core/items.ts`)، و`GoResultToast`. |
 | `src/state/store.ts`, `src/ui/` | المخزن والواجهات، بنفس أنماط الويب. |
