@@ -7,7 +7,7 @@
 
 ## الـ Stack
 
-Vite 8 · React 19 · TypeScript 7 (strict) · Leaflet 1.9 · Vitest 5 · بدون باكند.
+الويب: Vite 8 · React 19 · TypeScript 7 (strict) · Leaflet 1.9 · Vitest 5 · بدون باكند (تطبيق الجوال له سيرفر Supabase، تحت).
 بيانات الأماكن من Overpass/OpenStreetMap، المسارات من OSRM التجريبي، البحث بالاسم من Nominatim.
 التخزين كله `localStorage` على الجهاز.
 
@@ -75,6 +75,9 @@ Expo SDK 57 · React Native 0.86 · TypeScript (strict) · بدون خريطة. 
 بالجدول ثم TomTom، و`nearby-places` تجيب أماكن المربعات بسؤال واحد لكل مربع وحصة لكل نوع من رصيد TomTom
 (**٢٥٠٠ طلب بالشهر للبحث كله**، `MONTHLY_PLACES_BUDGET`). مفتاح TomTom على السيرفر في Supabase Secrets باسم `TOMTOM_KEY` (صاحب المشروع يضيفه من اللوحة، لا تمرّره بالمحادثة).
 **قبل إنشاء أي شي جديد في Supabase (جدول، دالة، مشروع) اعرض على صاحب المشروع بالضبط وش بينشئ.** بعد أي تعديل على الجدول شغّل فحص الأمان.
+رصيد TomTom المجاني **٢٥٠٠ طلب بحث بالشهر** للدالتين مع بعض، فأي تجربة بطلبات حقيقية تصرف منه.
+**النشر:** عدّلت ملف في `src/core` تستخدمه دالة؟ شغّل `npm run functions` ثم انشر الدالة وملفاتها المشتركة بأسماء `../_shared/<الملف>.ts`
+(ما فيه Supabase CLI على الجهاز؛ النشر من أداة Supabase). ملفات الترحيل في `supabase/migrations/` نسخة من اللي انطبق، مو تُطبّق لحالها.
 
 ```bash
 npm --prefix mobile start        # خادم Expo لجوال صاحب المشروع (Expo Go، نفس شبكة Wi-Fi)
@@ -83,6 +86,8 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 
 فحص النوع: `npx tsc --noEmit` داخل `mobile/`. المعاينة داخل Claude في `.claude/launch.json`: `mobile` (خادم الجوال)
 و`mobile-web` (المتصفح)، **الاثنين على المنفذ 8081**: أوقف واحد قبل تشغيل الثاني، ورجّع `mobile` بعد التحقق.
+معاينة `mobile` نفسها تخدم نسخة المتصفح على `http://localhost:8081`، فغالبًا تتحقق فيها بدون تبديل. التحميل الجديد يفقد بيانات المتصفح
+أحيانًا (يرجع الترحيب)، ومتغيرات `.env.local` الجديدة تحتاج إعادة تشغيل الخادم.
 
 | الملف | المسؤولية |
 | --- | --- |
@@ -90,7 +95,7 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/ui/NotesScreen.tsx`, `DoneScreen.tsx`, `AddSheet.tsx` | «مذكرة» (اللي باقي، بالأولوية أو الموعد، و«انتهى» للي فات موعده)، «تمت» («جبتها» بفرز التاريخ/الفئة/المكان، و«انتهى موعدها»)، ونافذة + (تحفظ مباشرة لو فهمت الغرض ومحله، وإلا تفتح المحرر). |
 | `src/ui/CategoryPicker.tsx`, `DeadlineField.tsx`, `BrandField.tsx` | في المحرر: اختيار الفئة من نافذة ببحث، و«آخر موعد» (اليوم، الوقت نص ساعة نص ساعة، «ذكرني»)، و«براند أو اسم» مع «تقصد: …؟». |
 | `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
-| `src/services/engine.ts` | محرك الويب بدون خريطة ولا OSRM، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين `gps` و`test`. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
+| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
 | `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٣٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
