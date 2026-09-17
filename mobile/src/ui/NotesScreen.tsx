@@ -48,7 +48,7 @@ export function NotesScreen({ onEdit, onSettings }: { onEdit: (d: Draft) => void
 
   const watching = status.source !== 'none';
   const statusText = status.source === 'test' ? `مشوار تجريبي · ${MODE_TEXT[status.mode]}`
-    : status.source === 'gps' ? MODE_TEXT[status.mode]
+    : status.source === 'gps' ? (status.waitingFix ? 'ننتظر موقعك' : MODE_TEXT[status.mode])
       : 'المراقبة متوقفة';
   const open = (r: Reminder) => onEdit(draftFromReminder(r));
 

@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useSyncExternalStore } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
   formatDetour, formatDistance, itemsText, placeTitle, reasonText, spokenAlert, whyAlertText,
 } from '../../../src/core/compose';
@@ -75,6 +75,8 @@ export interface EngineStatus {
   /** أماكن مطابقة لتذاكيرك في حدود ٤ كم */
   nearbyCount: number;
   gpsError: string | null;
+  /** المراقبة شغالة وما وصل أول موقع */
+  waitingFix: boolean;
   test: { progress: number; multiplier: number } | null;
   alerts: ActiveAlert[];
 }
@@ -88,10 +90,12 @@ const ALERT_TTL_MS: Record<AlertKind, number> = { pass: 90_000, passed: 60_000 }
 const STALE_REAL_MS = 15 * 60_000;
 /** التنبيهات كلها خانة وحدة في مركز الإشعارات: الجديد يستبدل القديم */
 const DRIVE_NOTIFICATION = 'alatareeq:drive';
+/** بعدها بدون أي موقع نقول للمستخدم */
+const FIX_WAIT_MS = 20_000;
 
 class Engine {
   private status: EngineStatus = {
-    source: 'none', mode: 'idle', speed: 0, trip: null, candidates: [], nearbyCount: 0, gpsError: null, test: null, alerts: [],
+    source: 'none', mode: 'idle', speed: 0, trip: null, candidates: [], nearbyCount: 0, gpsError: null, waitingFix: false, test: null, alerts: [],
   };
   private listeners = new Set<() => void>();
   private kin = new KinematicsTracker();
@@ -162,6 +166,7 @@ class Engine {
   /** يراقب موقعك الحقيقي والتطبيق مفتوح. يطلب الصلاحية لو ما انطلبت */
   async startGps() {
     this.stopSource();
+    if (Platform.OS === 'web') { this.startWebGps(); return; }
     const run = this.run;
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
@@ -179,10 +184,48 @@ class Engine {
       );
       if (run !== this.run) { sub.remove(); return; }
       this.watch = sub;
-      this.emit({ source: 'gps', gpsError: null, test: null });
+      this.watchingStarted(run);
     } catch {
       if (run === this.run) this.emit({ source: 'none', gpsError: 'ما قدرنا نحدد موقعك. تأكد إن خدمات الموقع شغالة.' });
     }
+  }
+
+  /**
+   * نسخة المتصفح: `watchPositionAsync` في expo-location للويب يدوّر صاحب المراقبة برقم المتصفح بدل رقمه،
+   * فما يوصل ولا موقع، ويوقف المراقبة مع أول موقع. عشان كذا نراقب بموقع المتصفح مباشرة.
+   */
+  private startWebGps() {
+    const run = this.run;
+    const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
+    if (!geo) {
+      this.emit({ source: 'none', gpsError: 'المتصفح ما يدعم تحديد الموقع.' });
+      return;
+    }
+    const id = geo.watchPosition(
+      (pos) => {
+        if (run !== this.run) return;
+        const c = pos.coords;
+        this.ingest({ lat: c.latitude, lon: c.longitude, t: pos.timestamp, speed: c.speed, heading: c.heading, accuracy: c.accuracy });
+      },
+      (err) => {
+        if (run !== this.run || err.code !== err.PERMISSION_DENIED) return;
+        this.stopSource();
+        this.emit({ source: 'none', waitingFix: false, gpsError: 'رفضت صلاحية الموقع. فعّلها للموقع من إعدادات Safari عشان نقدر ننبهك.' });
+      },
+      { enableHighAccuracy: true, maximumAge: 0 },
+    );
+    this.watch = { remove: () => geo.clearWatch(id) };
+    this.watchingStarted(run);
+  }
+
+  private watchingStarted(run: number) {
+    this.emit({ source: 'gps', gpsError: null, waitingFix: true, test: null });
+    // رسالة بس لو ما وصل موقع (مو انتهاء تنبيه)، وتنشال مع أول موقع
+    setTimeout(() => {
+      if (run === this.run && this.status.waitingFix) {
+        this.emit({ gpsError: 'ما وصلنا موقعك للحين. تأكد إن خدمات الموقع شغالة وإن الصفحة مفتوحة قدامك.' });
+      }
+    }, FIX_WAIT_MS);
   }
 
   /** يرجع للموقع الحقيقي بس لو الصلاحية موجودة، بدون ما يطلبها */
@@ -197,7 +240,7 @@ class Engine {
     this.stopSource();
     if (this.modes.forceEnd() && this.trip) this.finishTrip();
     this.cands.clear();
-    this.emit({ source: 'test', gpsError: null, test: { progress: 0, multiplier }, candidates: [] });
+    this.emit({ source: 'test', gpsError: null, waitingFix: false, test: { progress: 0, multiplier }, candidates: [] });
     this.player = new RoutePlayer(OLAYA_ROUTE, (s) => this.ingest(s), () => this.stopTest());
     this.player.start(multiplier);
   }
@@ -228,7 +271,7 @@ class Engine {
     if (this.modes.forceEnd() && this.trip) this.finishTrip();
     this.cands.clear();
     this.lastPos = null;
-    this.emit({ source: 'none', mode: 'idle', candidates: [], test: null, speed: 0, nearbyCount: 0 });
+    this.emit({ source: 'none', mode: 'idle', waitingFix: false, candidates: [], test: null, speed: 0, nearbyCount: 0 });
   }
 
   // ——— قلب المحرك ———
@@ -259,6 +302,8 @@ class Engine {
 
     this.emit({
       mode: step.mode,
+      waitingFix: false,
+      ...(this.status.source === 'gps' && this.status.gpsError ? { gpsError: null } : {}),
       speed,
       candidates: this.candViews(settings),
       nearbyCount: places.filter((p) => distanceM(me, p) < NEARBY_M).length,
