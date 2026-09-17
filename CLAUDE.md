@@ -18,6 +18,7 @@ npm run dev      # خادم التطوير (--host عشان تفتحه من ال
 npm test         # vitest على src/core فقط
 npm run build    # tsc -b ثم vite build ← dist/
 npm run icons    # يولّد أيقونات PNG من نفس تصميم public/icons/icon.svg
+npm run functions # ينسخ ملفات src/core اللي تحتاجها دوال Supabase لـ supabase/functions/_shared (قبل أي نشر)
 ```
 
 المعاينة داخل Claude: `.claude/launch.json` يشغّل Vite على المنفذ 5178.
@@ -28,7 +29,8 @@ npm run icons    # يولّد أيقونات PNG من نفس تصميم public/i
 
 | المجلد | المسؤولية |
 | --- | --- |
-| `src/core/` | المنطق الصافي والمختبَر، مشترك بين الويب والتطبيق: تطبيع عربي، محلل الجملة، الوقت، الهندسة، تقدير التحويلة، بوابة قواعد التنبيه، آلة الحالات، نصوص التنبيه، تصنيف أماكن OSM (`placeKind.ts`)، والأغراض داخل التذكير (`items.ts` بقاموس `products.ts`، بدون ذكاء اصطناعي بقرار صاحب المشروع)، والبحث عن فئة (`categorySearch.ts`؛ الفئات بـ `more: true` تطلع بالبحث بس). وخاص بتطبيق الجوال: الجملة ← تذكير لكل غرض بمحل وآخر موعد (`reminderInput.ts`)، والأولوية (`priority.ts`)، وآخر الموعد وإشعاره و«ذكرني» (`deadline.ts`)، وتجميع «تمت» وفرزها (`doneGroups.ts`). **بدون أي API متصفح أو React Native.** |
+| `src/core/` | المنطق الصافي والمختبَر، مشترك بين الويب والتطبيق: تطبيع عربي، محلل الجملة، الوقت، الهندسة، تقدير التحويلة، بوابة قواعد التنبيه، آلة الحالات، نصوص التنبيه، تصنيف أماكن OSM (`placeKind.ts`)، والأغراض داخل التذكير (`items.ts` بقاموس `products.ts`، بدون ذكاء اصطناعي بقرار صاحب المشروع)، والبحث عن فئة (`categorySearch.ts`؛ الفئات بـ `more: true` تطلع بالبحث بس). وخاص بتطبيق الجوال: الجملة ← تذكير لكل غرض بمحل وآخر موعد (`reminderInput.ts`)، والأولوية (`priority.ts`)، وآخر الموعد وإشعاره و«ذكرني» (`deadline.ts`)، وتجميع «تمت» وفرزها (`doneGroups.ts`)، والتعرف على براند من اسم فيه خطأ على نتائج TomTom (`brandName.ts`، ويستخدمه السيرفر). **بدون أي API متصفح أو React Native.** |
+| `supabase/` | سيرفر تطبيق الجوال (مشروع Supabase `alatareeq`): جدول `brands` في `migrations/`، ودالة `functions/verify-brand` (تصحيح البراند)، و`functions/_shared/` منسوخة من `src/core` بـ `npm run functions` (لا تعدّلها يدويًا). |
 | `src/services/` | الربط بالعالم: `osm.ts` (Overpass/OSRM/Nominatim)، `placeCache.ts`، `device.ts` (صوت/نطق/إشعارات/wake lock)، `simulator.ts`، و`engine.ts` اللي يوصّل كل شيء. |
 | `src/state/` | مخزن واحد على `localStorage` + سجل القرارات. |
 | `src/ui/` | الواجهات فقط: اليوم، المشوار (خريطة)، السجل، الإعدادات، الترحيب، لوحة التنبيه. |
@@ -66,8 +68,12 @@ Expo SDK 57 · React Native 0.86 · TypeScript (strict) · بدون خريطة. 
 التذاكير والإعدادات و`pendingGo` في AsyncStorage (ما فيه سجل). الأماكن حاليًا **تجريبية** (`mobile/src/mock/olaya.ts`: مسار العليا
 و١١ مكان حقيقي لكل واحد `branch` = الحي أو الشارع)، والمخطط استبدالها بـ **TomTom** بنفس واجهة `PlacesSource`
 في `services/places.ts` (بحيث تتبدّل لـ Google بعدين). التحويلة تقديرية (بدون OSRM).
-المفاتيح في `mobile/.env.local` (مستثنى من git، ومتغيرات `EXPO_PUBLIC_*` تنقرأ وقت تشغيل الخادم فقط): `EXPO_PUBLIC_TOMTOM_KEY`.
-لا تطبع قيمة مفتاح في أي مخرجات.
+المفاتيح في `mobile/.env.local` (مستثنى من git، ومتغيرات `EXPO_PUBLIC_*` تنقرأ وقت تشغيل الخادم فقط، فأعد تشغيله بعد أي تغيير):
+`EXPO_PUBLIC_TOMTOM_KEY`، و`EXPO_PUBLIC_SUPABASE_URL` و`EXPO_PUBLIC_SUPABASE_ANON_KEY` (المفتاح العام). لا تطبع قيمة مفتاح في أي مخرجات.
+
+**السيرفر (Supabase):** البراندات المشتركة في جدول `brands` (التطبيق يقرأ بس، والكتابة من الدالة)، ودالة `verify-brand` تصحح الاسم
+بالجدول ثم TomTom. مفتاح TomTom على السيرفر في Supabase Secrets باسم `TOMTOM_KEY` (صاحب المشروع يضيفه من اللوحة، لا تمرّره بالمحادثة).
+**قبل إنشاء أي شي جديد في Supabase (جدول، دالة، مشروع) اعرض على صاحب المشروع بالضبط وش بينشئ.** بعد أي تعديل على الجدول شغّل فحص الأمان.
 
 ```bash
 npm --prefix mobile start        # خادم Expo لجوال صاحب المشروع (Expo Go، نفس شبكة Wi-Fi)
@@ -81,7 +87,8 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | --- | --- |
 | `App.tsx` | الشريط تحت: «مذكرة» · زر + بالنص · «تمت»، والإعدادات من ⚙ فوق بشاشة لها سهم رجوع. الترحيب، بطاقة التنبيه فوق، «رحت له؟»، رسالة «حصلت / باقي» أو «انضاف» تحت، المحرر ونافذة الإضافة، ربط الإشعارات، وتشغيل مراقبة الموقع تلقائيًا. |
 | `src/ui/NotesScreen.tsx`, `DoneScreen.tsx`, `AddSheet.tsx` | «مذكرة» (اللي باقي، بالأولوية أو الموعد، و«انتهى» للي فات موعده)، «تمت» («جبتها» بفرز التاريخ/الفئة/المكان، و«انتهى موعدها»)، ونافذة + (تحفظ مباشرة لو فهمت الغرض ومحله، وإلا تفتح المحرر). |
-| `src/ui/CategoryPicker.tsx`, `DeadlineField.tsx` | في المحرر: اختيار الفئة من نافذة ببحث، و«آخر موعد» (اليوم، الوقت نص ساعة نص ساعة، «ذكرني»). |
+| `src/ui/CategoryPicker.tsx`, `DeadlineField.tsx`, `BrandField.tsx` | في المحرر: اختيار الفئة من نافذة ببحث، و«آخر موعد» (اليوم، الوقت نص ساعة نص ساعة، «ذكرني»)، و«براند أو اسم» مع «تقصد: …؟». |
+| `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
 | `src/services/engine.ts` | محرك الويب بدون خريطة ولا OSRM، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين `gps` و`test`. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
 | `src/services/places.ts`, `src/mock/olaya.ts` | مصدر الأماكن (تجريبي حاليًا) و`branchOf`. |

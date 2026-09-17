@@ -106,6 +106,11 @@ class Engine {
   private alerts: ActiveAlert[] = [];
   private sweepTimer: ReturnType<typeof setInterval> | null = null;
 
+  /** آخر موقع معروف في المراقبة، لتقريب بحث البراند من المستخدم */
+  get position(): LatLon | null {
+    return this.lastPos;
+  }
+
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
     return () => { this.listeners.delete(fn); };

@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { brandKey } from '../../../src/core/brandName';
 import { targetLabel } from '../../../src/core/compose';
 import { cleanTitle, joinItems, splitItems } from '../../../src/core/items';
 import { BRANDS } from '../../../src/core/lexicon';
 import { normalize, stems } from '../../../src/core/normalize';
 import type { Priority, Reminder, RemindBefore, SpecificPlace, Target } from '../../../src/core/types';
+import { confirmBrand, type BrandSuggestion } from '../services/brands';
 import { openPlaceInGoogleMaps } from '../services/device';
 import { store, uid } from '../state/store';
+import { BrandField } from './BrandField';
 import { CategoryPicker } from './CategoryPicker';
 import { DeadlineField } from './DeadlineField';
 import { formatWhen, placeBranch, PRIORITY_LABEL } from './format';
@@ -55,15 +58,20 @@ export function ReminderEditor({ draft, onClose }: { draft: Draft; onClose: () =
   const [remind, setRemind] = useState<RemindBefore | undefined>(draft.remindBefore);
   const [mode, setMode] = useState<TargetMode>(draft.target?.kind === 'brand' ? 'brand' : 'category');
   const [brandText, setBrandText] = useState(draft.target?.kind === 'brand' ? draft.target.label : '');
+  // البراند اللي أكده السيرفر للاسم الحالي، وينحفظ للكل مع الحفظ لو مكتوب صح
+  const [verified, setVerified] = useState<BrandSuggestion | null>(null);
   const items = useMemo(() => splitItems(title), [title]);
 
   const cats = target?.kind === 'category' ? target.categories : [];
+  // القاموس يعرف «باندا» = بنده: نتحقق من الاسم الصحيح، مو من الكتابة («الباندا» محلات اتصالات)
+  const brandQuery = target?.kind === 'brand' && !target.brandId.startsWith('name:') ? target.label : brandText;
 
   // كل تذكير لازم يكون له محل
   const valid = !!target;
 
   const save = () => {
     if (!target) return;
+    if (target.kind === 'brand' && verified && verified.key === brandKey(brandQuery)) confirmBrand(brandQuery);
     const base = {
       title: cleanTitle(title) || targetLabel(target),
       trigger: 'pass' as const,
@@ -158,9 +166,15 @@ export function ReminderEditor({ draft, onClose }: { draft: Draft; onClose: () =
                   }}
                 />
               ) : (
-                <TextInput
-                  style={S.input} value={brandText} placeholder="اكتب اسم المحل" placeholderTextColor={C.sub}
-                  onChangeText={(v) => { setBrandText(v); setTarget(brandFromText(v)); }}
+                <BrandField
+                  value={brandText} query={brandQuery} onVerified={setVerified}
+                  onChange={(v) => { setBrandText(v); setTarget(brandFromText(v)); }}
+                  onAccept={(b) => {
+                    // «تقصد» ينحفظ للكل ومعه الخطأ اللي كتبه («جريير» ← جرير)
+                    confirmBrand(brandQuery);
+                    setBrandText(b.name);
+                    setTarget(brandFromText(b.name));
+                  }}
                 />
               )}
             </>
