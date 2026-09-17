@@ -1,4 +1,5 @@
 import { normalize } from './normalize';
+import { categoryOfCode } from './placeTiles';
 import type { CategoryId } from './types';
 
 /**
@@ -73,18 +74,6 @@ export interface BrandMatch {
   category: CategoryId | null;
   /** صفر = نفس اللي كتبه المستخدم (بعد التطبيع) */
   distance: number;
-}
-
-/** أرقام فئات TomTom اللي نعرفها (بأول الرقم). الباقي بدون فئة */
-const TOMTOM_CATEGORIES: [prefix: string, category: CategoryId][] = [
-  ['7326', 'pharmacy'], ['7332', 'grocery'], ['9361002', 'bookstore'], ['9361023', 'grocery'], ['9361009', 'grocery'], ['7311', 'fuel'],
-  ['9376006', 'cafe'], ['7315', 'restaurant'], ['9361061', 'sweets'],
-];
-
-export function categoryOfCode(code?: number): CategoryId | null {
-  if (code === undefined) return null;
-  const s = String(code);
-  return TOMTOM_CATEGORIES.find(([prefix]) => s.startsWith(prefix))?.[1] ?? null;
 }
 
 /**

@@ -2,6 +2,7 @@ import { cleanTitle, splitItems } from './items';
 import { ITEM_CATEGORIES } from './lexicon';
 import { stems, tokenize } from './normalize';
 import type { ParsedReminder } from './parser';
+import { hasPlaceSource } from './placeTiles';
 import { priorityFromText, stripPriority } from './priority';
 import type { CategoryId, Priority, Target } from './types';
 
@@ -22,7 +23,10 @@ function endOfDay(ts: number): number {
   return d.getTime();
 }
 
-/** فئات الأغراض المذكورة في النص: «هدية» ← هدايا، «شامبو» ← صيدلية وبقالة */
+/**
+ * فئات الأغراض المذكورة في النص: «هدية» ← هدايا، «شامبو» ← صيدلية وبقالة.
+ * بدون الفئات اللي ما لها أماكن من TomTom («عطر» ← ما فيه محل، فالمستخدم يختار).
+ */
 export function categoriesFor(text: string): CategoryId[] {
   const cats: CategoryId[] = [];
   for (const t of tokenize(text)) {
@@ -30,7 +34,14 @@ export function categoriesFor(text: string): CategoryId[] {
       if (stems(t.norm).some((s) => words.includes(s))) for (const c of cs) if (!cats.includes(c)) cats.push(c);
     }
   }
-  return cats;
+  return cats.filter(hasPlaceSource);
+}
+
+/** المحل بدون الفئات اللي ما لها أماكن («إذا مريت على محل عطور» ← ما له محل) */
+function supported(target: Target | null): Target | null {
+  if (target?.kind !== 'category') return target;
+  const categories = target.categories.filter(hasPlaceSource);
+  return categories.length ? { kind: 'category', categories } : null;
 }
 
 /**
@@ -40,8 +51,8 @@ export function categoriesFor(text: string): CategoryId[] {
  */
 export function toReminderInputs(p: ParsedReminder, raw: string): ReminderInput[] {
   const title = stripPriority(p.title);
-  const explicit = p.target && !p.inferred ? p.target : null;
-  let fallback = p.target;
+  const explicit = p.target && !p.inferred ? supported(p.target) : null;
+  let fallback = supported(p.target);
   if (!fallback) {
     const categories = categoriesFor(title);
     if (categories.length) fallback = { kind: 'category', categories };

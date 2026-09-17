@@ -11,12 +11,14 @@ import {
 } from '../../../src/core/gate';
 import { distanceM, relativeTo, type LatLon, type Relative } from '../../../src/core/geo';
 import { joinItems, reminderItems } from '../../../src/core/items';
+import { BRAND_BY_ID } from '../../../src/core/lexicon';
 import { KinematicsTracker, ModeTracker, type Sample } from '../../../src/core/motion';
-import type { EngineMode, Place, Reminder, Settings, SpecificPlace, SuppressReason, Trip } from '../../../src/core/types';
+import { hasPlaceSource } from '../../../src/core/placeTiles';
+import type { CategoryId, EngineMode, Place, Reminder, Settings, SpecificPlace, SuppressReason, Trip } from '../../../src/core/types';
 import { OLAYA_ROUTE } from '../mock/olaya';
 import { store, uid } from '../state/store';
 import { announce, dismissNotification, dismissStaleNotifications, notify, openInGoogleMaps } from './device';
-import { mockPlaces } from './places';
+import { mockPlaces, tilePlaces } from './places';
 import { RoutePlayer } from './routePlayer';
 
 /** pass = على طريقك، passed = تجاوزت المكان؟ */
@@ -247,6 +249,8 @@ class Engine {
     if (step.tripStarted) this.beginTrip(s.t);
     if (step.tripEnded) this.finishTrip();
 
+    // وأنت تسوق نطلب مربعات الطريق اللي قدامك لأنواع تذاكيرك، وتوصل مع المواقع الجاية
+    if (this.status.source === 'gps') tilePlaces.want(me, heading, categoriesOf(placeRems));
     const places = this.placesFor(placeRems, me);
     if (this.trip && heading !== null && speed >= 3) {
       this.checkPassBy(me, heading, speed, s.t, placeRems, places, settings);
@@ -271,7 +275,9 @@ class Engine {
         out.push({ id: `sp:${p.id}`, name: p.name, lat: p.lat, lon: p.lon, categories: [], brands: [] });
       }
     }
-    for (const p of mockPlaces.near(me, PLACES_RADIUS_M)) {
+    // المشوار التجريبي على العليا بأماكنه الثابتة، عشان ما يصرف من رصيد TomTom
+    const source = this.status.source === 'test' ? mockPlaces : tilePlaces;
+    for (const p of source.near(me, PLACES_RADIUS_M)) {
       if (rems.some((r) => placeMatches(r, p))) out.push(p);
     }
     return out;
@@ -493,6 +499,20 @@ class Engine {
 
 function specificOf(p: Place, title: string): SpecificPlace {
   return { id: p.id, name: title, lat: p.lat, lon: p.lon, branch: p.branch };
+}
+
+/** أنواع المحلات اللي تحتاجها التذاكير: الفئات، وفئة البراند المعروف (النهدي ← صيدلية) */
+function categoriesOf(rems: Reminder[]): CategoryId[] {
+  const out = new Set<CategoryId>();
+  for (const r of rems) {
+    const t = r.target;
+    if (t?.kind === 'category') t.categories.forEach((c) => out.add(c));
+    else if (t?.kind === 'brand') {
+      const c = BRAND_BY_ID[t.brandId]?.category;
+      if (c) out.add(c);
+    }
+  }
+  return [...out].filter(hasPlaceSource);
 }
 
 export const engine = new Engine();

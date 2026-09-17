@@ -29,8 +29,8 @@ npm run functions # ينسخ ملفات src/core اللي تحتاجها دوا�
 
 | المجلد | المسؤولية |
 | --- | --- |
-| `src/core/` | المنطق الصافي والمختبَر، مشترك بين الويب والتطبيق: تطبيع عربي، محلل الجملة، الوقت، الهندسة، تقدير التحويلة، بوابة قواعد التنبيه، آلة الحالات، نصوص التنبيه، تصنيف أماكن OSM (`placeKind.ts`)، والأغراض داخل التذكير (`items.ts` بقاموس `products.ts`، بدون ذكاء اصطناعي بقرار صاحب المشروع)، والبحث عن فئة (`categorySearch.ts`؛ الفئات بـ `more: true` تطلع بالبحث بس). وخاص بتطبيق الجوال: الجملة ← تذكير لكل غرض بمحل وآخر موعد (`reminderInput.ts`)، والأولوية (`priority.ts`)، وآخر الموعد وإشعاره و«ذكرني» (`deadline.ts`)، وتجميع «تمت» وفرزها (`doneGroups.ts`)، والتعرف على براند من اسم فيه خطأ على نتائج TomTom (`brandName.ts`، ويستخدمه السيرفر). **بدون أي API متصفح أو React Native.** |
-| `supabase/` | سيرفر تطبيق الجوال (مشروع Supabase `alatareeq`): جدول `brands` في `migrations/`، ودالة `functions/verify-brand` (تصحيح البراند)، و`functions/_shared/` منسوخة من `src/core` بـ `npm run functions` (لا تعدّلها يدويًا). |
+| `src/core/` | المنطق الصافي والمختبَر، مشترك بين الويب والتطبيق: تطبيع عربي، محلل الجملة، الوقت، الهندسة، تقدير التحويلة، بوابة قواعد التنبيه، آلة الحالات، نصوص التنبيه، تصنيف أماكن OSM (`placeKind.ts`)، والأغراض داخل التذكير (`items.ts` بقاموس `products.ts`، بدون ذكاء اصطناعي بقرار صاحب المشروع)، والبحث عن فئة (`categorySearch.ts`؛ الفئات بـ `more: true` تطلع بالبحث بس). وخاص بتطبيق الجوال: الجملة ← تذكير لكل غرض بمحل وآخر موعد (`reminderInput.ts`)، والأولوية (`priority.ts`)، وآخر الموعد وإشعاره و«ذكرني» (`deadline.ts`)، وتجميع «تمت» وفرزها (`doneGroups.ts`)، والتعرف على براند من اسم فيه خطأ على نتائج TomTom (`brandName.ts`)، ومربعات الأماكن وأرقام فئات TomTom (`placeTiles.ts`)، ويستخدمهم السيرفر. **بدون أي API متصفح أو React Native.** |
+| `supabase/` | سيرفر تطبيق الجوال (مشروع Supabase `alatareeq`): جدول `brands` في `migrations/`، وجدولين `place_tiles` (أماكن كل مربع ونوع ٩٠ يوم) و`tomtom_budget` (رصيد TomTom بالشهر لكل نوع)، ودالة `functions/verify-brand` (تصحيح البراند) و`functions/nearby-places` (أماكن TomTom بمربعات)، و`functions/_shared/` منسوخة من `src/core` بـ `npm run functions` (لا تعدّلها يدويًا). |
 | `src/services/` | الربط بالعالم: `osm.ts` (Overpass/OSRM/Nominatim)، `placeCache.ts`، `device.ts` (صوت/نطق/إشعارات/wake lock)، `simulator.ts`، و`engine.ts` اللي يوصّل كل شيء. |
 | `src/state/` | مخزن واحد على `localStorage` + سجل القرارات. |
 | `src/ui/` | الواجهات فقط: اليوم، المشوار (خريطة)، السجل، الإعدادات، الترحيب، لوحة التنبيه. |
@@ -65,14 +65,15 @@ npm run functions # ينسخ ملفات src/core اللي تحتاجها دوا�
 ## تطبيق الجوال (`mobile/`)
 
 Expo SDK 57 · React Native 0.86 · TypeScript (strict) · بدون خريطة. يُجرَّب على iPhone داخل Expo Go.
-التذاكير والإعدادات و`pendingGo` في AsyncStorage (ما فيه سجل). الأماكن حاليًا **تجريبية** (`mobile/src/mock/olaya.ts`: مسار العليا
-و١١ مكان حقيقي لكل واحد `branch` = الحي أو الشارع)، والمخطط استبدالها بـ **TomTom** بنفس واجهة `PlacesSource`
-في `services/places.ts` (بحيث تتبدّل لـ Google بعدين). التحويلة تقديرية (بدون OSRM).
+التذاكير والإعدادات و`pendingGo` في AsyncStorage (ما فيه سجل). الأماكن وأنت تسوق **من TomTom عن طريق السيرفر بمربعات**
+(`tilePlaces` في `services/places.ts`، بنفس واجهة `PlacesSource` عشان تتبدّل لـ Google بعدين)، والمشوار التجريبي على أماكن العليا الثابتة
+(`mobile/src/mock/olaya.ts`) عشان ما يصرف رصيد TomTom. التحويلة تقديرية (بدون OSRM).
 المفاتيح في `mobile/.env.local` (مستثنى من git، ومتغيرات `EXPO_PUBLIC_*` تنقرأ وقت تشغيل الخادم فقط، فأعد تشغيله بعد أي تغيير):
 `EXPO_PUBLIC_TOMTOM_KEY`، و`EXPO_PUBLIC_SUPABASE_URL` و`EXPO_PUBLIC_SUPABASE_ANON_KEY` (المفتاح العام). لا تطبع قيمة مفتاح في أي مخرجات.
 
 **السيرفر (Supabase):** البراندات المشتركة في جدول `brands` (التطبيق يقرأ بس، والكتابة من الدالة)، ودالة `verify-brand` تصحح الاسم
-بالجدول ثم TomTom. مفتاح TomTom على السيرفر في Supabase Secrets باسم `TOMTOM_KEY` (صاحب المشروع يضيفه من اللوحة، لا تمرّره بالمحادثة).
+بالجدول ثم TomTom، و`nearby-places` تجيب أماكن المربعات بسؤال واحد لكل مربع وحصة لكل نوع من رصيد TomTom
+(**٢٥٠٠ طلب بالشهر للبحث كله**، `MONTHLY_PLACES_BUDGET`). مفتاح TomTom على السيرفر في Supabase Secrets باسم `TOMTOM_KEY` (صاحب المشروع يضيفه من اللوحة، لا تمرّره بالمحادثة).
 **قبل إنشاء أي شي جديد في Supabase (جدول، دالة، مشروع) اعرض على صاحب المشروع بالضبط وش بينشئ.** بعد أي تعديل على الجدول شغّل فحص الأمان.
 
 ```bash
@@ -91,7 +92,7 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
 | `src/services/engine.ts` | محرك الويب بدون خريطة ولا OSRM، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين `gps` و`test`. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
-| `src/services/places.ts`, `src/mock/olaya.ts` | مصدر الأماكن (تجريبي حاليًا) و`branchOf`. |
+| `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٣٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
 | `src/ui/GoCheckCard.tsx` | «رحت له؟» بعلامة صح لكل غرض (من `src/core/items.ts`)، و`GoResultToast`. |
 | `src/state/store.ts`, `src/ui/` | المخزن والواجهات، بنفس أنماط الويب. |

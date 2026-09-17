@@ -177,7 +177,10 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
       <Text style={S.h2}>بياناتك</Text>
       <View style={S.card}>
-        <Text style={S.sub}>تذاكيرك محفوظة على جوالك بس، وما نرسل موقعك لأي خدمة.</Text>
+        <Text style={S.sub}>
+          تذاكيرك محفوظة على جوالك بس. وأنت تسوق نرسل لسيرفرنا منطقتك التقريبية (مربع ١٫٥ كم) وأنواع المحلات اللي تحتاجها
+          (مثل صيدلية)، مو التذاكير نفسها، عشان نجيب المحلات القريبة. واسم البراند اللي تكتبه يروح للسيرفر عشان نصححه.
+        </Text>
         <Btn title="أضف تذاكير أمثلة" onPress={addSamples} />
         <Btn title="احذف كل بياناتي" kind="danger" onPress={reset} />
       </View>

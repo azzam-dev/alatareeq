@@ -1,5 +1,6 @@
 import { CATEGORIES, ITEM_CATEGORIES, type CategoryDef } from './lexicon';
 import { normalize } from './normalize';
+import { hasPlaceSource } from './placeTiles';
 import { categoriesFor } from './reminderInput';
 
 /** الكلمة وصيغتها بدون «ال»: «الصيدلية» تطابق «صيدلية» */
@@ -48,12 +49,16 @@ const collate = (a: string, b: string) => normalize(a).localeCompare(normalize(b
 /**
  * بدون بحث: المناسبة لعنوان التذكير أول («شامبو» ← صيدلية، بقالة)، وبعدها الباقي: الست الأساسية ثم الإضافية أبجديًا.
  * مع بحث (حرفين أو أكثر): نتيجة `searchCategories` كاملة بترتيبها، بدون أقسام.
+ * الفئات اللي ما لها أماكن من TomTom (عطور، حلويات، أدوات منزلية) ما تطلع لين نلقى لها حل.
  */
 export function categoryPicker(title: string, query: string): CategoryPickerList {
-  if (normalize(query).replace(/\s+/g, '').length >= 2) return { suggested: [], rest: searchCategories(query, CATEGORIES.length) };
+  if (normalize(query).replace(/\s+/g, '').length >= 2) {
+    return { suggested: [], rest: searchCategories(query, CATEGORIES.length).filter((c) => hasPlaceSource(c.id)) };
+  }
   const ids = new Set(categoriesFor(title));
-  const suggested = CATEGORIES.filter((c) => ids.has(c.id));
-  const others = CATEGORIES.filter((c) => !ids.has(c.id));
+  const shown = CATEGORIES.filter((c) => hasPlaceSource(c.id));
+  const suggested = shown.filter((c) => ids.has(c.id));
+  const others = shown.filter((c) => !ids.has(c.id));
   return {
     suggested,
     rest: [...others.filter((c) => !c.more), ...others.filter((c) => c.more).sort((a, b) => collate(a.label, b.label))],

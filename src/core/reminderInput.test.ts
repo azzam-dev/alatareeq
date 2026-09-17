@@ -70,3 +70,11 @@ describe('كل غرض تذكير مستقل', () => {
     ]);
   });
 });
+
+describe('الفئات اللي ما لها أماكن (عطور، حلويات، أدوات منزلية)', () => {
+  it('ما تنحط محل، فالمستخدم يختار', () => {
+    expect(input('ابي اشتري عطر')).toMatchObject({ title: 'عطر', target: null, needsPlace: true });
+    expect(input('ذكرني إذا مريت على محل عطور أشتري عود')).toMatchObject({ target: null, needsPlace: true });
+    expect(input('ابي اشتري كيك وحليب').target).toEqual({ kind: 'category', categories: ['grocery'] });
+  });
+});
