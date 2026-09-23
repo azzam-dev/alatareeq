@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { categoryPicker, searchCategories } from './categorySearch';
+import {
+  ARRIVE_VERBS, BRANDS, CATEGORIES, COMMANDS, CONDITIONALS, CONNECTORS, ITEM_CATEGORIES, PASS_VERBS, PLACE_MODIFIERS, PREPS, TASK_VERBS,
+} from './lexicon';
+import { normalize } from './normalize';
+import { BRANDS as PRODUCT_BRANDS, GENERIC_WORDS, QUANTITIES } from './products';
 import { parseReminder } from './parser';
 import { classifyPlace } from './placeKind';
 
@@ -79,5 +84,33 @@ describe('قائمة اختيار الفئة', () => {
     expect(labels(categoryPicker('', 'مغسلة').rest)).toEqual(['مغسلة', 'مغسلة سيارات']);
     expect(categoryPicker('', 'النهدي').rest).toEqual([]);
     expect(labels(categoryPicker('شامبو', 'ص').suggested)).toEqual(['صيدلية', 'بقالة']);
+  });
+});
+
+describe('قاموس الأغراض', () => {
+  it('كل كلمة مطبّعة وكلمة وحدة وما تتكرر', () => {
+    const seen = new Map<string, number>();
+    ITEM_CATEGORIES.forEach(([words], i) => {
+      for (const w of words) {
+        expect(normalize(w), w).toBe(w);
+        expect(w, w).not.toMatch(/\s/);
+        expect(seen.has(w), `«${w}» مكررة في القائمة ${seen.get(w)} و${i}`).toBe(false);
+        seen.set(w, i);
+      }
+    });
+  });
+  it('ما تتعارض مع كلام الجملة: اسم محل أو براند، فعل، كمية، أداة', () => {
+    // مقصودة: «عبي» فعل يدل على الوقود، «أغراض/مقاضي» عامة تدل على البقالة، و«قرطاسية» محل وغرض للمكتبة
+    const allowed = new Set(['عبي', 'اعبي', 'اغراض', 'مقاضي', 'قرطاسيه']);
+    const clash = new Set([
+      ...CATEGORIES.flatMap((c) => c.words), ...BRANDS.flatMap((b) => b.words), ...PRODUCT_BRANDS, ...TASK_VERBS, ...COMMANDS,
+      ...CONDITIONALS, ...CONNECTORS, ...PREPS, ...PLACE_MODIFIERS, ...PASS_VERBS, ...ARRIVE_VERBS, ...QUANTITIES, ...GENERIC_WORDS,
+    ].map(normalize));
+    const bad = ITEM_CATEGORIES.flatMap(([words]) => words).filter((w) => clash.has(w) && !allowed.has(w));
+    expect(bad).toEqual([]);
+  });
+  it('كل فئة لها أغراض، إلا الخدمات', () => {
+    const withItems = new Set(ITEM_CATEGORIES.flatMap(([, cs]) => cs));
+    expect(CATEGORIES.map((c) => c.id).filter((c) => !withItems.has(c))).toEqual(['charging', 'mall', 'gym', 'carRental', 'vet']);
   });
 });

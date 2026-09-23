@@ -105,3 +105,46 @@ describe('الفئات اللي ما لها أماكن (عطور، حلويات)
     expect(input('ابي اشتري كيك وحليب').target).toEqual({ kind: 'category', categories: ['grocery'] });
   });
 });
+
+describe('أغراض كل الفئات (قاموس ٢٣ سبتمبر)', () => {
+  const cats = (s: string) => inputs(s).map((r) => [r.title, r.target]);
+  it('كل غرض يروح لفئته', () => {
+    expect(cats('ابي اشتري ثلاجة ومكيف')).toEqual([['ثلاجة', cat('electronics')], ['مكيف', cat('electronics')]]);
+    expect(cats('ابي اشتري محفظة')).toEqual([['محفظة', cat('bags')]]);
+    expect(cats('ابي اشتري روج')).toEqual([['روج', cat('cosmetics', 'pharmacy')]]);
+    expect(cats('ابي اشتري بذور')).toEqual([['بذور', cat('garden')]]);
+    expect(cats('ابي اشتري مخدات')).toEqual([['مخدات', cat('houseware', 'furniture')]]);
+    expect(cats('ابي اشتري لحم مفروم')).toEqual([['لحم مفروم', cat('grocery', 'butcher')]]);
+    expect(cats('ابي اشتري شاحن ايفون')).toEqual([['شاحن ايفون', cat('mobile', 'electronics')]]);
+    expect(cats('ابي اشتري شاكوش ومسامير')).toEqual([['شاكوش', cat('hardware')], ['مسامير', cat('hardware')]]);
+    expect(cats('ابي اشتري جنوط')).toEqual([['جنوط', cat('tires', 'carParts')]]);
+    expect(cats('ابي اطبع بروشور')[0][1]).toEqual(cat('print'));
+  });
+  it('كلمات لها معنى ثاني ما تغيّر الفئة', () => {
+    // «الساعة» وقت مو مجوهرات
+    expect(input('ابي اشتري خبز الساعة ٥').target).toEqual(cat('grocery'));
+    // «فول» أكل، و«عبي» لحالها وقود
+    expect(input('ابي اشتري فول').target).toEqual(cat('grocery'));
+    expect(input('عبي بنزين').target).toEqual(cat('fuel'));
+  });
+});
+
+describe('توسعة القاموس الثانية', () => {
+  it('أغراض شائعة جديدة', () => {
+    expect(input('ابي اشتري فريزر').target).toEqual(cat('electronics'));
+    expect(input('ابي اشتري سجاجيد').target).toEqual(cat('carpets'));
+    expect(input('ابي اشتري ورد جوري').target).toEqual(cat('florist'));
+    expect(input('ابي اشتري اضحية').target).toEqual(cat('butcher'));
+    expect(input('ابي اشتري مجلى').target).toEqual(cat('kitchens', 'hardware'));
+    expect(input('ابي اشتري ماكياتو').target).toEqual(cat('cafe'));
+    expect(input('ابي اشتري تورتة').target).toBeNull();
+    expect(input('ابي اشتري مصحف').target).toEqual(cat('bookstore'));
+    expect(input('ابي اشتري ليرة ذهب').target).toEqual(cat('jewelry'));
+    expect(input('ابي اشتري ببغاء').target).toEqual(cat('pets'));
+    expect(input('ابي اسوي تحاليل').target).toEqual(cat('clinic', 'hospital'));
+  });
+  it('المبالغ والأوقات ما تصير أغراض', () => {
+    expect(input('ابي اشتري خبز بخمسة ريال').target).toEqual(cat('grocery'));
+    expect(input('ابي اشتري حليب بعد ساعتين').target).toEqual(cat('grocery'));
+  });
+});

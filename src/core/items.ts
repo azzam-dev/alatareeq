@@ -1,4 +1,4 @@
-import { TASK_VERBS } from './lexicon';
+import { ITEM_CATEGORIES, TASK_VERBS } from './lexicon';
 import { INVISIBLE, normalize, stems } from './normalize';
 import { BRANDS, COMPOUND_HEADS, GENERIC_WORDS, PRODUCTS, QUANTITIES } from './products';
 
@@ -20,7 +20,8 @@ function wordSet(words: readonly string[]): Set<string> {
   return out;
 }
 
-const PRODUCT = wordSet(PRODUCTS);
+/** القاموس، وكل غرض له فئة («زولية» ← سجاد) غرض كمان */
+const PRODUCT = wordSet([...PRODUCTS, ...ITEM_CATEGORIES.flatMap(([words]) => words)]);
 const BRAND = wordSet(BRANDS);
 const QUANTITY = wordSet(QUANTITIES);
 const HEAD = wordSet(COMPOUND_HEADS);
