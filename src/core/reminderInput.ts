@@ -1,4 +1,5 @@
 import { cleanTitle, splitItems } from './items';
+import { learnedTarget, type Learned } from './learned';
 import { ITEM_CATEGORIES } from './lexicon';
 import { stems, tokenize } from './normalize';
 import type { ParsedReminder } from './parser';
@@ -15,6 +16,8 @@ export interface ReminderInput {
   priority: Priority;
   /** ما له محل («أتصل على أبوي»): ما ينحفظ لين يختار المستخدم وين */
   needsPlace: boolean;
+  /** المحل من تفضيل المستخدم (`learned.ts`)، مو من القاموس */
+  learned?: true;
 }
 
 function endOfDay(ts: number): number {
@@ -49,7 +52,7 @@ function supported(target: Target | null): Target | null {
  * المحل الصريح («إذا مريت على صيدلية»، «من جرير») لكل الأغراض، وإلا كل غرض بفئته، ولو ما له فئة ياخذ فئات الجملة.
  * الموعد والأولوية مشتركة. المحلل ما يستنتج الفئة لما يكون فيه وقت (لأنه كان يعتبره تذكير بوقت)، فنستنتجها هنا.
  */
-export function toReminderInputs(p: ParsedReminder, raw: string): ReminderInput[] {
+export function toReminderInputs(p: ParsedReminder, raw: string, learned: Learned = {}): ReminderInput[] {
   const title = stripPriority(p.title);
   const explicit = p.target && !p.inferred ? supported(p.target) : null;
   let fallback = supported(p.target);
@@ -67,11 +70,21 @@ export function toReminderInputs(p: ParsedReminder, raw: string): ReminderInput[
   const one = (itemTitle: string, target: Target | null): ReminderInput => ({
     title: itemTitle, target, deadline, priority, needsPlace: !target,
   });
+  // تفضيل المستخدم يغلب القاموس، والمحل الصريح في الجملة يغلبه
+  const fromLearned = (itemTitle: string): ReminderInput | null => {
+    const t = explicit ? null : learnedTarget(learned, itemTitle);
+    return t ? { ...one(itemTitle, t), learned: true } : null;
+  };
 
   const items = splitItems(title);
-  if (!items.length) return [one(cleanTitle(title), fallback)];
+  if (!items.length) {
+    const whole = cleanTitle(title);
+    return [fromLearned(whole) ?? one(whole, fallback)];
+  }
   return items.map((item) => {
     if (explicit) return one(item, explicit);
+    const l = fromLearned(item);
+    if (l) return l;
     const categories = categoriesFor(item);
     return one(item, categories.length ? { kind: 'category', categories } : fallback);
   });

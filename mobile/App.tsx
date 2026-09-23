@@ -44,7 +44,9 @@ function Root() {
   const [lastTab, setLastTab] = useState<Tab>('notes');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState<Reminder[] | null>(null);
+  // `learned`: فيها غرض محله من تفضيل المستخدم
+  const [added, setAdded] = useState<{ rs: Reminder[]; learned: boolean } | null>(null);
+  const learnNotice = useStore((s) => s.learnNotice);
 
   // رسالة «حصلت / باقي» تحت الشاشة وتختفي لحالها. ما تشارك مكان التنبيه فوق،
   // لأن تنبيه فرع ثاني عن الغرض الباقي يطلع غالبًا فورًا وورا بعض، فكانت تنحجب
@@ -60,6 +62,13 @@ function Root() {
     const t = setTimeout(() => setAdded(null), 5000);
     return () => clearTimeout(t);
   }, [added]);
+
+  // «بنتذكر» بعد ما تعلّمنا تفضيل، وتختفي لحالها
+  useEffect(() => {
+    if (!learnNotice) return;
+    const t = setTimeout(() => store.setLearnNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [learnNotice]);
 
   useEffect(() => {
     void store.hydrate();
@@ -106,13 +115,27 @@ function Root() {
           <View style={styles.bottomWrap}>
             <GoResultToast key={goResult.at} result={goResult} />
           </View>
+        ) : learnNotice ? (
+          <View style={styles.bottomWrap}>
+            <View style={styles.toast} accessibilityRole="alert">
+              <Text style={[S.text, { color: '#FFFFFF', flex: 1 }]} numberOfLines={2}>
+                ✓ بنتذكر: {learnNotice.place.item} ← {targetLabel(learnNotice.place.target)}
+              </Text>
+              <Pressable
+                accessibilityRole="button" hitSlop={10}
+                onPress={() => { store.setLearned(learnNotice.key, learnNotice.prev); store.setLearnNotice(null); }}
+              >
+                <Text style={styles.toastAction}>تراجع</Text>
+              </Pressable>
+            </View>
+          </View>
         ) : added && (
           <View style={styles.bottomWrap}>
             <View style={styles.toast} accessibilityRole="alert">
               <Text style={[S.text, { color: '#FFFFFF', flex: 1 }]} numberOfLines={2}>
-                ✓ انضاف: {addedText(added)}
+                ✓ انضاف: {addedText(added.rs)}{added.learned ? ' · حسب تفضيلك' : ''}
               </Text>
-              <Pressable accessibilityRole="button" hitSlop={10} onPress={() => { setDraft(draftFromReminder(added[0])); setAdded(null); }}>
+              <Pressable accessibilityRole="button" hitSlop={10} onPress={() => { setDraft(draftFromReminder(added.rs[0])); setAdded(null); }}>
                 <Text style={styles.toastAction}>تعديل</Text>
               </Pressable>
             </View>
@@ -149,7 +172,7 @@ function Root() {
       {adding && (
         <AddSheet
           onClose={() => setAdding(false)}
-          onAdded={(rs) => { setAdding(false); setAdded(rs); }}
+          onAdded={(rs, learned) => { setAdding(false); store.setLearnNotice(null); setAdded({ rs, learned }); }}
           onNeedPlace={(d) => { setAdding(false); setDraft(d); }}
         />
       )}

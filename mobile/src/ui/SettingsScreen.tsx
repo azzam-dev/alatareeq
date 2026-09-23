@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { formatDetour, formatDistance } from '../../../src/core/compose';
+import { formatDetour, formatDistance, targetLabel } from '../../../src/core/compose';
 import { DEFAULT_SETTINGS, type Settings } from '../../../src/core/types';
 import { confirmDelete, notificationPermission, notify, requestNotifications, showNotice } from '../services/device';
 import { engine, useEngine, type CandView } from '../services/engine';
@@ -147,6 +147,8 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         <ToggleRow label="اهتزاز" value={s.sound} onChange={(v) => set({ sound: v })} />
       </View>
 
+      <Preferences />
+
       <TrialTrip />
 
       <Pressable
@@ -181,6 +183,37 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
       <Text style={[S.sub, { textAlign: 'center' }]}>عالطريق · تطبيق الجوال · نسخة تجريبية</Text>
     </ScrollView>
+  );
+}
+
+/** «الغرض ← المحل» اللي تعلّمناه من تعديلات المستخدم، ويرجع للافتراضي منها (`src/core/learned.ts`) */
+function Preferences() {
+  const learned = useStore((st) => st.learned);
+  const prefs = useMemo(() => Object.entries(learned).sort((a, b) => b[1].at - a[1].at), [learned]);
+  const resetAll = () => confirmDelete('نرجّع كل تفضيلاتك للافتراضي؟', 'الأغراض ترجع لمحلاتها من اختيارنا.', () => store.clearLearned());
+  return (
+    <>
+      <HelpTitle
+        title="تفضيلاتك"
+        help="لما تغيّر محل غرض في التذكير، نحفظه ونستخدمه المرة الجاية بدل اختيارنا. المحل اللي تكتبه في الجملة («إذا مريت على صيدلية») يغلبه."
+      />
+      <View style={S.card}>
+        {prefs.length === 0 ? (
+          <Text style={S.sub}>ما فيه تفضيلات للحين. غيّر محل أي غرض ونحفظه هنا.</Text>
+        ) : prefs.map(([key, p]) => (
+          <View key={key} style={[S.row, { justifyContent: 'space-between', gap: 12 }]}>
+            <Text style={[S.text, { flex: 1 }]}>{p.item} ← {targetLabel(p.target)}</Text>
+            <Pressable
+              accessibilityRole="button" accessibilityLabel={`رجّع ${p.item} للافتراضي`} hitSlop={10}
+              onPress={() => store.setLearned(key, null)}
+            >
+              <Text style={{ color: C.sub, fontSize: 18, fontWeight: '700' }}>✕</Text>
+            </Pressable>
+          </View>
+        ))}
+        {prefs.length > 0 && <Btn title="رجّع الكل للافتراضي" onPress={resetAll} />}
+      </View>
+    </>
   );
 }
 

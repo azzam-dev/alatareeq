@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, Tex
 import { brandKey } from '../../../src/core/brandName';
 import { targetLabel } from '../../../src/core/compose';
 import { cleanTitle, joinItems, splitItems } from '../../../src/core/items';
+import { learnFromEdit } from '../../../src/core/learned';
 import { BRANDS } from '../../../src/core/lexicon';
 import { normalize, stems } from '../../../src/core/normalize';
 import type { Priority, Reminder, RemindBefore, SpecificPlace, Target } from '../../../src/core/types';
@@ -88,6 +89,9 @@ export function ReminderEditor({ draft, onClose }: { draft: Draft; onClose: () =
     if (draft.id) store.updateReminder(draft.id, { ...base, title: first, lastNotifiedAt: undefined, snoozedUntil: undefined });
     else store.addReminder({ id: uid(), status: 'active', createdAt: Date.now(), raw: draft.raw, ...base, title: first });
     for (const item of rest) store.addReminder({ id: uid(), status: 'active', createdAt: Date.now(), raw: draft.raw, ...base, title: item });
+    // غيّر محل غرض واحد: نتعلمه للمرة الجاية، والرسالة تحت فيها «تراجع»
+    const learn = learnFromEdit([first, ...rest], draft.target, target, Date.now());
+    if (learn) store.learn(learn.key, learn.place);
     onClose();
   };
 

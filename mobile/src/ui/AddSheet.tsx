@@ -18,7 +18,8 @@ export const NEEDS_PLACE = 'عالطريق للأغراض والمشاوير ا�
  */
 export function AddSheet({ onClose, onAdded, onNeedPlace }: {
   onClose: () => void;
-  onAdded: (rs: Reminder[]) => void;
+  /** `learned`: فيها غرض محله من تفضيل المستخدم */
+  onAdded: (rs: Reminder[], learned: boolean) => void;
   onNeedPlace: (d: Draft) => void;
 }) {
   const [text, setText] = useState('');
@@ -27,14 +28,14 @@ export function AddSheet({ onClose, onAdded, onNeedPlace }: {
     const raw = text.trim();
     if (!raw) return;
     // كل غرض تذكير مستقل: اللي له محل ينحفظ، وأول واحد بدون محل يفتح المحرر
-    const inputs = toReminderInputs(parseReminder(raw), raw);
+    const inputs = toReminderInputs(parseReminder(raw), raw, store.get().learned);
     const now = Date.now();
     const saved: Reminder[] = inputs.filter((i) => !i.needsPlace).map((i) => ({
       id: uid(), status: 'active', createdAt: now, raw, trigger: 'pass',
       title: i.title || targetLabel(i.target), target: i.target, deadline: i.deadline, priority: i.priority,
     }));
     saved.forEach(store.addReminder);
-    if (saved.length) onAdded(saved);
+    if (saved.length) onAdded(saved, inputs.some((i) => i.learned));
     const missing = inputs.find((i) => i.needsPlace);
     if (missing) {
       onNeedPlace({

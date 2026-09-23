@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { cleanTitle, splitItems } from '../../../src/core/items';
+import type { Learned, LearnedPlace } from '../../../src/core/learned';
 import { DEFAULT_SETTINGS, type Reminder, type Settings, type SpecificPlace } from '../../../src/core/types';
 
 /** نتيجة «خلصت؟» نعرضها لثواني: وش حصلت ووش باقي */
@@ -19,9 +20,21 @@ export interface PendingGo {
   at: number;
 }
 
+/** رسالة «بنتذكر» بعد ما يتعلم تفضيل، مع اللي كان قبله للتراجع */
+export interface LearnNotice {
+  key: string;
+  place: LearnedPlace;
+  prev: LearnedPlace | null;
+  at: number;
+}
+
 export interface AppState {
   reminders: Reminder[];
   settings: Settings;
+  /** تفضيلات «الغرض ← المحل» (`src/core/learned.ts`) */
+  learned: Learned;
+  /** مؤقت، ما ينحفظ على الجهاز */
+  learnNotice: LearnNotice | null;
   pendingGo: PendingGo | null;
   /** مؤقت، ما ينحفظ على الجهاز */
   goResult: GoResult | null;
@@ -58,7 +71,11 @@ function splitReminder(r: Reminder): Reminder[] {
   return items.map((title) => ({ ...r, id: uid(), title, priority: 'normal' }));
 }
 
-let state: AppState = { reminders: [], settings: DEFAULT_SETTINGS, pendingGo: null, goResult: null, onboarded: false, hydrated: false };
+const EMPTY: Omit<AppState, 'hydrated'> = {
+  reminders: [], settings: DEFAULT_SETTINGS, learned: {}, learnNotice: null, pendingGo: null, goResult: null, onboarded: false,
+};
+
+let state: AppState = { ...EMPTY, hydrated: false };
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -69,8 +86,8 @@ function emit() {
 function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { reminders, settings, pendingGo, onboarded } = state;
-    AsyncStorage.setItem(KEY, JSON.stringify({ reminders, settings, pendingGo, onboarded, itemTitles: ITEM_TITLES, passOnly: PASS_ONLY, oneItem: ONE_ITEM }))
+    const { reminders, settings, learned, pendingGo, onboarded } = state;
+    AsyncStorage.setItem(KEY, JSON.stringify({ reminders, settings, learned, pendingGo, onboarded, itemTitles: ITEM_TITLES, passOnly: PASS_ONLY, oneItem: ONE_ITEM }))
       .catch(() => undefined);
   }, 150);
 }
@@ -117,6 +134,7 @@ export const store = {
           reminders,
           // «من كم بعيد نبدأ نشيك؟» انشال من الإعدادات (قرار صاحب المشروع ٢٣ سبتمبر): اللي غيّره يرجع للافتراضي
           settings: { ...DEFAULT_SETTINGS, ...s.settings, outerRingM: DEFAULT_SETTINGS.outerRingM },
+          learned: s.learned ?? {},
           pendingGo,
           onboarded: s.onboarded ?? false,
         };
@@ -149,9 +167,30 @@ export const store = {
   setGoResult(goResult: GoResult | null) {
     store.set((s) => ({ ...s, goResult }));
   },
+  /** يحفظ تفضيل أو يشيله (`null`) */
+  setLearned(key: string, place: LearnedPlace | null) {
+    store.set((s) => {
+      const learned = { ...s.learned };
+      if (place) learned[key] = place;
+      else delete learned[key];
+      return { ...s, learned };
+    });
+  },
+  /** يتعلم تفضيل ويطلع رسالة «بنتذكر» فيها «تراجع» */
+  learn(key: string, place: LearnedPlace) {
+    const prev = state.learned[key] ?? null;
+    store.setLearned(key, place);
+    store.set((s) => ({ ...s, learnNotice: { key, place, prev, at: Date.now() } }));
+  },
+  clearLearned() {
+    store.set((s) => ({ ...s, learned: {} }));
+  },
+  setLearnNotice(learnNotice: LearnNotice | null) {
+    store.set((s) => ({ ...s, learnNotice }));
+  },
   resetAll() {
     AsyncStorage.removeItem(KEY).catch(() => undefined);
-    state = { reminders: [], settings: DEFAULT_SETTINGS, pendingGo: null, goResult: null, onboarded: false, hydrated: true };
+    state = { ...EMPTY, hydrated: true };
     emit();
   },
 };
