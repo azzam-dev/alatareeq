@@ -29,7 +29,7 @@ npm run functions # ينسخ ملفات src/core اللي تحتاجها دوا�
 
 | المجلد | المسؤولية |
 | --- | --- |
-| `src/core/` | المنطق الصافي والمختبَر، مشترك بين الويب والتطبيق: تطبيع عربي، محلل الجملة، الوقت، الهندسة، تقدير التحويلة، بوابة قواعد التنبيه، آلة الحالات، نصوص التنبيه، تصنيف أماكن OSM (`placeKind.ts`)، والأغراض داخل التذكير (`items.ts` بقاموس `products.ts`، بدون ذكاء اصطناعي بقرار صاحب المشروع)، والبحث عن فئة (`categorySearch.ts`؛ الفئات بـ `more: true` تطلع بالبحث بس). وخاص بتطبيق الجوال: الجملة ← تذكير لكل غرض بمحل وآخر موعد (`reminderInput.ts`)، والأولوية (`priority.ts`)، وآخر الموعد وإشعاره و«ذكرني» (`deadline.ts`)، وتجميع «تمت» وفرزها (`doneGroups.ts`)، وتفضيلات المستخدم «الغرض ← المحل» (`learned.ts`)، والتعرف على براند من اسم فيه خطأ على نتائج TomTom (`brandName.ts`)، ومربعات الأماكن وأرقام فئات TomTom (`placeTiles.ts`)، ويستخدمهم السيرفر. **بدون أي API متصفح أو React Native.** |
+| `src/core/` | المنطق الصافي والمختبَر، مشترك بين الويب والتطبيق: تطبيع عربي، محلل الجملة، الوقت، الهندسة، تقدير التحويلة، بوابة قواعد التنبيه، آلة الحالات، نصوص التنبيه، تصنيف أماكن OSM (`placeKind.ts`)، والأغراض داخل التذكير (`items.ts` بقاموس `products.ts`، بدون ذكاء اصطناعي بقرار صاحب المشروع)، والبحث عن فئة (`categorySearch.ts`؛ الفئات بـ `more: true` تطلع بالبحث بس). وخاص بتطبيق الجوال: الجملة ← تذكير لكل غرض بمحل وآخر موعد (`reminderInput.ts`)، والأولوية (`priority.ts`)، وآخر الموعد وإشعاره و«ذكرني» (`deadline.ts`)، وتجميع «تمت» وفرزها (`doneGroups.ts`)، وتفضيلات المستخدم «الغرض ← المحل» (`learned.ts`)، والتعرف على براند من اسم فيه خطأ على نتائج TomTom (`brandName.ts`)، ومربعات الأماكن وأرقام فئات TomTom (`placeTiles.ts`)، ويستخدمهم السيرفر، وأنواع Google Places لكل فئة (`googlePlaces.ts`، جاهز وما يستخدمه شي لين يتفعّل حساب Google). **بدون أي API متصفح أو React Native.** |
 | `supabase/` | سيرفر تطبيق الجوال (مشروع Supabase `alatareeq`): جدول `brands` في `migrations/`، وجدولين `place_tiles` (أماكن كل مربع ونوع ٩٠ يوم) و`tomtom_budget` (رصيد TomTom بالشهر لكل نوع)، ودالة `functions/verify-brand` (تصحيح البراند) و`functions/nearby-places` (أماكن TomTom بمربعات)، و`functions/_shared/` منسوخة من `src/core` بـ `npm run functions` (لا تعدّلها يدويًا). |
 | `src/services/` | الربط بالعالم: `osm.ts` (Overpass/OSRM/Nominatim)، `placeCache.ts`، `device.ts` (صوت/نطق/إشعارات/wake lock)، `simulator.ts`، و`engine.ts` اللي يوصّل كل شيء. |
 | `src/state/` | مخزن واحد على `localStorage` + سجل القرارات. |
@@ -79,7 +79,9 @@ Expo SDK 57 · React Native 0.86 · TypeScript (strict) · بدون خريطة. 
 **النشر:** عدّلت ملف في `src/core` تستخدمه دالة؟ شغّل `npm run functions` ثم انشر الدالة وملفاتها المشتركة بأسماء `../_shared/<الملف>.ts`
 (ما فيه Supabase CLI على الجهاز؛ النشر من أداة Supabase). ملفات الترحيل في `supabase/migrations/` نسخة من اللي انطبق، مو تُطبّق لحالها.
 
-**الموقع (Vercel):** نسخة الجوال نفسها تنبني كموقع من GitHub (كل push على `main`). الإعدادات في `mobile/vercel.json`، ومتغيرات
+**الموقع (Vercel):** نسخة الجوال نفسها تنبني كموقع من GitHub: كل push على `main` يحدّث الموقع الرسمي، وأي فرع ثاني له رابط معاينة
+(`tajriba`: https://alatareeq-948m-git-tajriba-me-5abe.vercel.app). حالة البناء والرابط: `gh api repos/azzam-dev/alatareeq/commits/<sha>/statuses`
+(أداة Vercel هنا ما تشوف المشروع). الإعدادات في `mobile/vercel.json`، ومتغيرات
 Supabase العامة في `mobile/.env.production` (داخل git عمدًا، **لا تحط فيه مفتاح سري**). مشروع Vercel لازم Root Directory = `mobile` مع
 «Include files outside the root directory»، وإلا يبني الويب القديم أو يفشل على `../src/core`. تجربة البناء محليًا: `npx expo export -p web` داخل `mobile/`.
 
@@ -99,7 +101,7 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/ui/NotesScreen.tsx`, `DoneScreen.tsx`, `AddSheet.tsx` | «مذكرة» (اللي باقي، بالأولوية أو الموعد، و«انتهى» للي فات موعده)، «تمت» («جبتها» بفرز التاريخ/الفئة/المكان، و«انتهى موعدها»)، ونافذة + (تحفظ مباشرة لو فهمت الغرض ومحله، وإلا تفتح المحرر). |
 | `src/ui/CategoryPicker.tsx`, `DeadlineField.tsx`, `BrandField.tsx` | في المحرر: اختيار الفئة من نافذة ببحث، و«آخر موعد» (اليوم، الوقت نص ساعة نص ساعة، «ذكرني»)، و«براند أو اسم» مع «تقصد: …؟». |
 | `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
-| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
+| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). على الويب الموقع من `navigator.geolocation` مباشرة (`startWebGps`)، لأن `watchPositionAsync` في `expo-location` للويب فيه خلل يضيّع المواقع. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
 | `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٩٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
@@ -117,6 +119,9 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 - **تنبيهات الطريق خانة إشعار وحدة (`DRIVE_NOTIFICATION`)**: امسح إشعار التنبيه نفسه بـ `dismissNotification`، لا `dismissAll`،
   وخلّ الإرسال والمسح يمرّون بطابور `serial` في `device.ts`.
 - **رسالة «حصلت / باقي» تحت الشاشة، لا في مكان التنبيه فوق**: تنبيه فرع ثاني يجي فورًا بعد «ما تم» ويغطيها.
+- **قاموس الأغراض `ITEM_CATEGORIES` (`lexicon.ts`) كلماته مطبّعة** (ه بدل ة، ي بدل ى وئ، ا بدل أ؛ و«ء» الأخيرة تبقى) وكل كلمة فيه غرض تلقائيًا.
+  اختبارات `categorySearch.test.ts` ترفض الكلمة غير المطبّعة أو المكررة أو اللي تتعارض مع اسم محل/فعل/كمية. لا تضيف كلمة لها معنى ثاني
+  شائع (ساعه، ريال، حنا، بس): تخرب فهم الجملة.
 - **النص من iPhone فيه أحيانًا حروف اتجاه مخفية** (U+200F قبل الكلمة): أي مقارنة كلمات تمر بـ `normalize` (يشيل `INVISIBLE`)،
   لا مقارنة النص الخام. اختبارات Node والمتصفح ما تبيّنها لأن الكتابة فيها ما تضيف الحرف.
 - `Alert.alert` ما يشتغل في نسخة المتصفح: استخدم `confirmDelete` و`showNotice` من `services/device.ts` (نوافذ المتصفح على الويب). والكتابة بأداة الكتابة في المتصفح ما توصل
@@ -128,6 +133,7 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 
 ## git
 
-فرع وحيد `main` (الافتراضي على GitHub، ريبو خاص). commit وpush بطلب صاحب المشروع فقط.
+فرعين: `main` (الافتراضي على GitHub والموقع الرسمي) و`tajriba` (تعديلات صاحب المشروع، والشغل الجاري عليه). commit وpush بطلب صاحب
+المشروع فقط، والدمج في `main` بطلبه بس. ريبو خاص.
 
 اقرأ PROGRESS.md لآخر حالة عمل.
