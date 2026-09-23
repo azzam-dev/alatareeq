@@ -1,9 +1,9 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, AppState, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { AppState, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { formatDetour, formatDistance } from '../../../src/core/compose';
 import { DEFAULT_SETTINGS, type Settings } from '../../../src/core/types';
-import { notificationPermission, notify, requestNotifications } from '../services/device';
+import { confirmDelete, notificationPermission, notify, requestNotifications, showNotice } from '../services/device';
 import { engine, useEngine, type CandView } from '../services/engine';
 import { store, useStore } from '../state/store';
 import { formatClock } from './format';
@@ -69,13 +69,13 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
   const testNotification = () => {
     void notify({ alertId: 'test', title: 'على طريقك: أسواق التميمي · ٧٠٠ م', body: '+٢ د · عندك: حليب', category: 'pass', forceShow: true }, 5);
-    Alert.alert('بعد ٥ ثواني يطلع إشعار تجريبي', 'تقدر تقفل الشاشة وتشوفه. اسحبه لتحت أو اضغط عليه مطوّل عشان تشوف الأزرار.');
+    showNotice('بعد ٥ ثواني يطلع إشعار تجريبي', 'تقدر تقفل الشاشة وتشوفه. اسحبه لتحت أو اضغط عليه مطوّل عشان تشوف الأزرار.');
   };
 
-  const reset = () => Alert.alert('نحذف كل التذاكير والإعدادات من هالجوال؟', 'ما تقدر ترجعها بعدين.', [
-    { text: 'لا', style: 'cancel' },
-    { text: 'احذف', style: 'destructive', onPress: () => { engine.stop(); store.resetAll(); } },
-  ]);
+  const reset = () => confirmDelete('نحذف كل التذاكير والإعدادات من هالجوال؟', 'ما تقدر ترجعها بعدين.', () => {
+    engine.stop();
+    store.resetAll();
+  });
 
   const ahead = aheadOf(s.aheadAngleDeg);
 

@@ -1,8 +1,29 @@
 import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
-import { AppState, Linking, Platform, Vibration } from 'react-native';
+import { Alert, AppState, Linking, Platform, Vibration } from 'react-native';
 import type { LatLon } from '../../../src/core/geo';
 import type { Settings } from '../../../src/core/types';
+
+// ——— نوافذ التأكيد ———
+// `Alert.alert` ما يسوي شي في نسخة المتصفح، فهناك نستخدم نوافذ المتصفح نفسه
+
+/** تأكيد قبل حذف: «لا» يلغي، و«احذف» ينفّذ */
+export function confirmDelete(title: string, message: string | undefined, onDelete: () => void) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(message ? `${title}\n${message}` : title)) onDelete();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: 'لا', style: 'cancel' },
+    { text: 'احذف', style: 'destructive', onPress: onDelete },
+  ]);
+}
+
+/** رسالة بزر «تمام» بس */
+export function showNotice(title: string, message: string) {
+  if (Platform.OS === 'web') window.alert(`${title}\n${message}`);
+  else Alert.alert(title, message);
+}
 
 // ——— الإشعارات ———
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { brandKey } from '../../../src/core/brandName';
 import { targetLabel } from '../../../src/core/compose';
 import { cleanTitle, joinItems, splitItems } from '../../../src/core/items';
@@ -7,7 +7,7 @@ import { BRANDS } from '../../../src/core/lexicon';
 import { normalize, stems } from '../../../src/core/normalize';
 import type { Priority, Reminder, RemindBefore, SpecificPlace, Target } from '../../../src/core/types';
 import { confirmBrand, type BrandSuggestion } from '../services/brands';
-import { openPlaceInGoogleMaps } from '../services/device';
+import { confirmDelete, openPlaceInGoogleMaps } from '../services/device';
 import { store, uid } from '../state/store';
 import { BrandField } from './BrandField';
 import { CategoryPicker } from './CategoryPicker';
@@ -92,10 +92,7 @@ export function ReminderEditor({ draft, onClose }: { draft: Draft; onClose: () =
   };
 
   const remove = () => {
-    Alert.alert('نحذف التذكير؟', title || undefined, [
-      { text: 'لا', style: 'cancel' },
-      { text: 'احذف', style: 'destructive', onPress: () => { store.deleteReminder(draft.id!); onClose(); } },
-    ]);
+    confirmDelete('نحذف التذكير؟', title || undefined, () => { store.deleteReminder(draft.id!); onClose(); });
   };
 
   return (
