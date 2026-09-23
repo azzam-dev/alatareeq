@@ -71,7 +71,34 @@ describe('كل غرض تذكير مستقل', () => {
   });
 });
 
-describe('الفئات اللي ما لها أماكن (عطور، حلويات، أدوات منزلية)', () => {
+describe('فئات TomTom الجديدة (٢٣ سبتمبر)', () => {
+  it('الغرض يدل على الفئة', () => {
+    expect(inputs('ابي اشتري طماطم وموز').map((r) => [r.title, r.target])).toEqual([
+      ['طماطم', cat('grocery', 'produce')], ['موز', cat('grocery', 'produce')],
+    ]);
+    expect(input('ابي اشتري سمك').target).toEqual(cat('fish', 'grocery'));
+    expect(input('ابي اشتري بوية').target).toEqual(cat('paint', 'hardware'));
+    expect(input('ابي اشتري كفرات').target).toEqual(cat('tires'));
+    expect(input('ابي اشتري مكياج').target).toEqual(cat('cosmetics', 'pharmacy'));
+    expect(input('ابي اشتري زولية').target).toEqual(cat('carpets'));
+    // «أدوات منزلية» كانت مخفية، وصار لها أماكن
+    expect(input('ابي اشتري صحون').target).toEqual(cat('houseware'));
+    // القهوة من المقهى، مو البقالة (ملاحظة صاحب المشروع)
+    expect(input('ابي اشتري قهوة').target).toEqual(cat('cafe'));
+    expect(input('ابي اشتري قهوة وحليب').target).toEqual(cat('cafe'));
+  });
+  it('المحل الصريح', () => {
+    expect(input('ذكرني إذا مريت على مشتل أشتري سماد').target).toEqual(cat('garden'));
+    expect(input('ذكرني إذا مريت على بنشر').target).toEqual(cat('tires'));
+    expect(input('ذكرني إذا مريت على عيادة بيطرية').target).toEqual(cat('vet'));
+    expect(input('ذكرني إذا مريت على مطبعة أطبع الدعوات').target).toEqual(cat('print'));
+    expect(input('ذكرني إذا مريت على محل خضار').target).toEqual(cat('produce'));
+    // «ورد» باقي للورد، و«مشتل» صار لحاله
+    expect(input('ذكرني إذا مريت على محل ورد').target).toEqual(cat('florist'));
+  });
+});
+
+describe('الفئات اللي ما لها أماكن (عطور، حلويات)', () => {
   it('ما تنحط محل، فالمستخدم يختار', () => {
     expect(input('ابي اشتري عطر')).toMatchObject({ title: 'عطر', target: null, needsPlace: true });
     expect(input('ذكرني إذا مريت على محل عطور أشتري عود')).toMatchObject({ target: null, needsPlace: true });

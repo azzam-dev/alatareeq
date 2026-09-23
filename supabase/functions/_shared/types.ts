@@ -5,7 +5,10 @@ export type CategoryId =
   | 'toys' | 'electronics' | 'mobile' | 'clothes' | 'shoes' | 'perfume' | 'jewelry' | 'florist' | 'gifts' | 'houseware'
   | 'furniture' | 'hardware' | 'sports' | 'pets' | 'bakery' | 'sweets' | 'cafe' | 'restaurant' | 'atm' | 'bank' | 'clinic'
   | 'hospital' | 'optician' | 'barber' | 'beauty' | 'carWash' | 'carParts' | 'carRepair' | 'post' | 'tailor' | 'butcher'
-  | 'mall' | 'gym';
+  | 'mall' | 'gym'
+  // من قائمة TomTom (٢٣ سبتمبر)
+  | 'produce' | 'fish' | 'carpets' | 'curtains' | 'lighting' | 'paint' | 'building' | 'garden' | 'kitchens' | 'cosmetics'
+  | 'bags' | 'print' | 'medicalSupplies' | 'tires' | 'carRental' | 'vet';
 
 /** pass = عند المرور (الافتراضي)، arrive = عند الوصول، time = في وقت محدد */
 export type TriggerKind = 'pass' | 'arrive' | 'time';

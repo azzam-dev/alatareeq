@@ -15,7 +15,7 @@ describe('أرقام فئات TomTom', () => {
       expect(c.id in TOMTOM_CODES, c.id).toBe(true);
       expect((TOMTOM_CODES[c.id] ?? []).length).toBeLessThanOrEqual(10);
     }
-    expect(CATEGORIES.filter((c) => !hasPlaceSource(c.id)).map((c) => c.id)).toEqual(['perfume', 'houseware', 'sweets']);
+    expect(CATEGORIES.filter((c) => !hasPlaceSource(c.id)).map((c) => c.id)).toEqual(['perfume', 'sweets']);
   });
   it('الرقم وفروعه، والأطول يغلب', () => {
     expect(categoryOfCode(7332005)).toBe('grocery');

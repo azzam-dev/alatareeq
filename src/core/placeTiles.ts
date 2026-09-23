@@ -27,13 +27,14 @@ export const TOMTOM_MAX_RESULTS = 100;
 export const MONTHLY_PLACES_BUDGET = 2500;
 
 /**
- * أرقام فئات TomTom لكل فئة (أول ١٠ بالكثير في الطلب). `null` = ما لها رقم عند TomTom، ومخفية لين نلقى حل
- * (قرار صاحب المشروع ١٧ سبتمبر): عطور، حلويات، أدوات منزلية.
+ * أرقام فئات TomTom لكل فئة (أول ١٠ بالكثير في الطلب)، من قائمة `poiCategories` (٦١٠ فئة، ٢٣ سبتمبر). `null` = ما لها
+ * رقم عند TomTom، ومخفية لين نلقى حل (قرار صاحب المشروع ١٧ سبتمبر): عطور وحلويات.
  */
 export const TOMTOM_CODES: Record<CategoryId, number[] | null> = {
   pharmacy: [7326],
   grocery: [7332, 9361023, 9361009, 9361021],
-  bookstore: [9361002],
+  // المكتبة ومحلات القرطاسية (Office Equipment)
+  bookstore: [9361002, 9361014],
   fuel: [7311],
   laundry: [9361045, 9361010],
   charging: [7309],
@@ -46,7 +47,8 @@ export const TOMTOM_CODES: Record<CategoryId, number[] | null> = {
   jewelry: [9361036],
   florist: [9361017],
   gifts: [9361026],
-  houseware: null,
+  // أواني (Glassware/Ceramic) ومحلات المتنوعات (Variety Store)
+  houseware: [9361055, 9361081],
   furniture: [9361054, 9361031],
   hardware: [9361069, 9361030],
   sports: [9361039],
@@ -70,6 +72,24 @@ export const TOMTOM_CODES: Record<CategoryId, number[] | null> = {
   butcher: [9361019],
   mall: [7373],
   gym: [7320002],
+  // خضار وفواكه (Greengrocer) وحلقة الخضار (Farmers Market، تحت «سوق» 7332 فالأطول يغلب)
+  produce: [9361022, 7332004],
+  fish: [9361020],
+  carpets: [9361028],
+  curtains: [9361029],
+  lighting: [9361034],
+  paint: [9361035],
+  building: [9361042],
+  garden: [9361032],
+  kitchens: [9361033],
+  cosmetics: [9361050],
+  bags: [9361058],
+  // تصوير مستندات، واستوديو تصوير
+  print: [9361047, 9361046],
+  medicalSupplies: [9361043],
+  tires: [7310007],
+  carRental: [7312],
+  vet: [9375],
 };
 
 /** الفئة لها أماكن من TomTom (غيرها تنخفي من الاختيار) */

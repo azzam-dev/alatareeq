@@ -158,12 +158,6 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       </Pressable>
       {advanced && (
         <View style={S.card}>
-          <Stepper
-            label="من كم بعيد نبدأ نشيك؟" show={formatDistance(s.outerRingM)}
-            hint={`لما يصير المحل على بعد ${formatDistance(s.outerRingM)} نبدأ نشوف هل يستاهل تمر عليه.`}
-            onMinus={() => set({ outerRingM: clamp(s.outerRingM - 200, 800, 3000) })}
-            onPlus={() => set({ outerRingM: clamp(s.outerRingM + 200, 800, 3000) })}
-          />
           <View style={{ gap: 6 }}>
             <HelpTitle title="وش يعتبر «قدامك»؟" help={AHEAD_HINT[ahead]} style={S.text} />
             <Seg<Ahead>

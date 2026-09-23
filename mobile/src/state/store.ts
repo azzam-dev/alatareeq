@@ -115,7 +115,8 @@ export const store = {
         state = {
           ...state,
           reminders,
-          settings: { ...DEFAULT_SETTINGS, ...s.settings },
+          // «من كم بعيد نبدأ نشيك؟» انشال من الإعدادات (قرار صاحب المشروع ٢٣ سبتمبر): اللي غيّره يرجع للافتراضي
+          settings: { ...DEFAULT_SETTINGS, ...s.settings, outerRingM: DEFAULT_SETTINGS.outerRingM },
           pendingGo,
           onboarded: s.onboarded ?? false,
         };

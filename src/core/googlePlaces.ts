@@ -72,6 +72,23 @@ export const GOOGLE_TYPES: Record<CategoryId, string[] | null> = {
   butcher: ['butcher_shop'],
   mall: ['shopping_mall'],
   gym: ['gym', 'fitness_center'],
+  // فئات TomTom الجديدة: أغلبها ما لها نوع عند Google
+  produce: null,
+  fish: null,
+  carpets: null,
+  curtains: null,
+  lighting: null,
+  paint: null,
+  building: ['building_materials_store'],
+  garden: ['garden_center'],
+  kitchens: null,
+  cosmetics: ['cosmetics_store'],
+  bags: null,
+  print: null,
+  medicalSupplies: null,
+  tires: ['tire_shop'],
+  carRental: ['car_rental'],
+  vet: ['veterinary_care'],
 };
 
 /** فئاتنا لمكان من أنواعه عند Google. هايبر فيه صيدلية يطلع للاثنين، والأنواع العامة («store») ما تطابق شي */

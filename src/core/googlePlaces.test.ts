@@ -13,12 +13,14 @@ const LON = 46.6935;
 const TILE = tileOf(LAT, LON);
 
 describe('أنواع Google لكل فئة', () => {
-  it('كل فئة لها أنواع أو مخفية، والمخفية عطور ونظارات بس', () => {
+  it('كل فئة لها أنواع أو مخفية: عطور ونظارات، وأغلب فئات TomTom الجديدة', () => {
     for (const c of CATEGORIES) {
       expect(c.id in GOOGLE_TYPES, c.id).toBe(true);
       for (const t of GOOGLE_TYPES[c.id] ?? []) expect(t).toMatch(/^[a-z_]+$/);
     }
-    expect(CATEGORIES.filter((c) => !GOOGLE_TYPES[c.id]).map((c) => c.id)).toEqual(['perfume', 'optician']);
+    expect(CATEGORIES.filter((c) => !GOOGLE_TYPES[c.id]).map((c) => c.id)).toEqual([
+      'perfume', 'optician', 'produce', 'fish', 'carpets', 'curtains', 'lighting', 'paint', 'kitchens', 'bags', 'print', 'medicalSupplies',
+    ]);
   });
   it('فئة المكان من أنواعه', () => {
     expect(categoriesOfTypes(['hypermarket', 'supermarket', 'grocery_store', 'food_store', 'store'])).toEqual(['grocery']);
