@@ -5,7 +5,7 @@ import { formatDetour, formatDistance, targetLabel } from '../../../src/core/com
 import { DEFAULT_SETTINGS, type Settings } from '../../../src/core/types';
 import { confirmDelete, notificationPermission, notify, requestNotifications, showNotice } from '../services/device';
 import { engine, useEngine, type CandView } from '../services/engine';
-import { setTripLogOn, tripLog, useTripLogOn } from '../services/tripLog';
+import { setTripLogOn, useTripLogOn } from '../services/tripLog';
 import { store, useStore } from '../state/store';
 import { formatClock } from './format';
 import { Btn, Chip, Chips, HelpDot, HelpTitle, ScreenHeader, Seg, Stepper, ToggleRow } from './parts';
@@ -38,7 +38,7 @@ const aheadOf = (deg: number): Ahead => (deg <= 52 ? 'narrow' : deg <= 70 ? 'nor
 
 const HOW_IT_WORKS = 'تكتب وش تبي («ابي اشتري خبز وحليب»)، ولما يكون محل مناسب على طريقك وما ياخذ من وقتك كثير ننبهك، وتضغط «اذهب» ونفتح لك الخرائط على المحل.';
 
-export function SettingsScreen({ onBack }: { onBack: () => void }) {
+export function SettingsScreen({ onBack, onTrip }: { onBack: () => void; onTrip: () => void }) {
   const s = useStore((st) => st.settings);
   const set = (patch: Partial<Settings>) => store.setSettings(patch);
   const [notif, setNotif] = useState<Perm>('undetermined');
@@ -145,6 +145,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       <Preferences />
 
       <TrialTrip />
+      <TripLogCard onOpen={onTrip} />
 
       <Pressable
         accessibilityRole="button" accessibilityState={{ expanded: advanced }} onPress={() => setAdvanced(!advanced)}
@@ -163,7 +164,6 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             />
           </View>
           <Btn title="رجّع الإعدادات الأصلية" onPress={() => set(DEFAULT_SETTINGS)} />
-          <TripLogRow />
         </View>
       )}
 
@@ -182,24 +182,17 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-/** مؤقت للاختبار: يسجّل المشاوير ويرفعها لصفحة `trips.html` (`services/tripLog.ts`) */
-function TripLogRow() {
+/** مؤقت للاختبار: يسجّل المشاوير (`services/tripLog.ts`)، وتنعرض في «تفاصيل المشوار» وترتفع لحالها بعد كل مشوار */
+function TripLogCard({ onOpen }: { onOpen: () => void }) {
   const on = useTripLogOn();
-  const [msg, setMsg] = useState<string | null>(null);
   return (
-    <View style={{ gap: 8 }}>
+    <View style={S.card}>
       <ToggleRow
         label="سجّل مشاويري (للاختبار)"
-        hint="نسجّل مسارك والمحلات وقرارات التنبيه، ونرفعها بعد كل مشوار لصفحة الاختبار (‎/trips.html). أي أحد يعرف الصفحة يقدر يشوفها."
+        hint="نسجّل مسارك والمحلات والتنبيهات عشان تشوفها في «تفاصيل المشوار»، وترتفع لنا بعد كل مشوار عشان نراجعها."
         value={on} onChange={setTripLogOn}
       />
-      {on && (
-        <Btn
-          title="ارفع المشوار الحين"
-          onPress={() => { setMsg('نرفع…'); void tripLog.uploadNow().then(setMsg); }}
-        />
-      )}
-      {on && msg && <Text style={S.sub}>{msg}</Text>}
+      <Btn title="تفاصيل المشوار" onPress={onOpen} />
     </View>
   );
 }

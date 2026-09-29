@@ -4,8 +4,8 @@ import { targetLabel } from '../../../src/core/compose';
 import type { CategoryId, Place, Reminder, Settings } from '../../../src/core/types';
 
 /**
- * مؤقت للاختبار: يسجّل المشوار كامل ويرفعه لجدول `trip_logs`، وصفحة `public/trips.html` تعرضه على خريطة.
- * ينشال مع الصفحة والجدول بعد الاختبار. مطفي افتراضيًا، ويتشغّل من «إعدادات متقدمة».
+ * مؤقت للاختبار: يسجّل المشوار كامل، وشاشة «تفاصيل المشوار» تعرضه (الحالي وآخر ١٠)، ويرتفع لحاله لجدول `trip_logs`
+ * بعد كل مشوار عشان نراجعه. ينشال مع الشاشة والجدول بعد الاختبار. مطفي افتراضيًا، ويتشغّل من الإعدادات.
  */
 
 const URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -15,6 +15,9 @@ const DEVICE_KEY = 'alatareeq:triplog:device';
 /** المشوار الحالي (ينحفظ كل شوي عشان لو انقفلت الصفحة) واللي ما ارتفع */
 const CURRENT_KEY = 'alatareeq:triplog:current';
 const PENDING_KEY = 'alatareeq:triplog:pending';
+/** آخر المشاوير في الجوال للشاشة */
+const HISTORY_KEY = 'alatareeq:triplog:history';
+const HISTORY_MAX = 10;
 /** نقطة من المسار كل ٣ ثواني بالكثير */
 const POINT_GAP_MS = 3000;
 /** الجدول يرفض أكبر من ١ ميقا */
@@ -70,9 +73,44 @@ export function useTripLogOn(): boolean {
   return useSyncExternalStore((fn) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, () => on);
 }
 
-// ——— التسجيل ———
+// ——— للشاشة: المشوار الحالي وآخر المشاوير ———
 
 let cur: TripLog | null = null;
+let history: TripLog[] = [];
+let snap: { current: TripLog | null; history: TripLog[] } = { current: null, history: [] };
+const logListeners = new Set<() => void>();
+let emitTimer: ReturnType<typeof setTimeout> | undefined;
+
+void AsyncStorage.getItem(HISTORY_KEY).then((raw) => {
+  // مشوار انضاف قبل ما يخلص التحميل (`recover`) يبقى أول
+  const saved = raw ? (JSON.parse(raw) as TripLog[]) : [];
+  history = [...history, ...saved.filter((s) => !history.some((h) => h.id === s.id))].slice(0, HISTORY_MAX);
+  changed(true);
+}).catch(() => undefined);
+
+/** الشاشة تتحدث كل ثانيتين بالكثير وأنت تسوق، وفورًا لما يبدأ أو ينتهي مشوار */
+function changed(now = false) {
+  if (emitTimer && !now) return;
+  clearTimeout(emitTimer);
+  emitTimer = setTimeout(() => {
+    emitTimer = undefined;
+    snap = { current: cur ? { ...cur } : null, history };
+    logListeners.forEach((l) => l());
+  }, now ? 0 : 2000);
+}
+
+export function useTripLogs() {
+  return useSyncExternalStore((fn) => { logListeners.add(fn); return () => { logListeners.delete(fn); }; }, () => snap);
+}
+
+function remember(log: TripLog) {
+  if (!log.points.length) return;
+  history = [log, ...history.filter((h) => h.id !== log.id)].slice(0, HISTORY_MAX);
+  AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history)).catch(() => undefined);
+}
+
+// ——— التسجيل ———
+
 let lastPoint = 0;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -98,6 +136,7 @@ export const tripLog = {
     };
     lastPoint = 0;
     save();
+    changed(true);
   },
 
   point(t: number, lat: number, lon: number, speed: number, heading: number | null) {
@@ -156,15 +195,11 @@ export const tripLog = {
     const done = cur;
     cur = null;
     clearTimeout(saveTimer);
+    saveTimer = undefined;
     AsyncStorage.removeItem(CURRENT_KEY).catch(() => undefined);
+    remember(done);
+    changed(true);
     void queue(done);
-  },
-
-  /** زر «ارفع الحين»: المشوار الحالي لين الحين (ويكمل تسجيله) واللي ما ارتفع قبل */
-  async uploadNow(): Promise<string> {
-    if (cur) await upload(cur);
-    const left = await flush();
-    return left ? `ارتفع، وباقي ${left} ما ارتفعت (تأكد من النت)` : 'ارتفع';
   },
 };
 
@@ -173,10 +208,15 @@ function round(n: number, d: number): number {
   return Math.round(n * f) / f;
 }
 
-/** نحفظ المشوار الحالي في الجهاز كل شوي: Safari يقفل الصفحة أحيانًا وهي بالخلفية */
+/**
+ * نحفظ المشوار الحالي في الجهاز كل ثانيتين بالكثير: Safari يقفل الصفحة أحيانًا وهي بالخلفية.
+ * مؤقت ما ينعاد مع كل نقطة، وإلا المشوار السريع (التجريبي) ما ينحفظ أبد.
+ */
 function save() {
-  clearTimeout(saveTimer);
+  changed();
+  if (saveTimer) return;
   saveTimer = setTimeout(() => {
+    saveTimer = undefined;
     if (cur) AsyncStorage.setItem(CURRENT_KEY, JSON.stringify(cur)).catch(() => undefined);
   }, 2000);
 }
@@ -190,6 +230,8 @@ async function recover() {
       log.endedAt ??= log.points.at(-1)?.[0] ?? log.startedAt;
       log.events.push({ t: log.endedAt, kind: 'cut', text: 'التطبيق انقفل قبل نهاية المشوار' });
       await AsyncStorage.removeItem(CURRENT_KEY);
+      remember(log);
+      changed(true);
       await queue(log);
     } else {
       await flush();

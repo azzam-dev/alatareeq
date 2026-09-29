@@ -18,10 +18,11 @@ import { Onboarding } from './src/ui/Onboarding';
 import { deadlineNotification } from './src/ui/format';
 import { draftFromReminder, ReminderEditor, type Draft } from './src/ui/ReminderEditor';
 import { SettingsScreen } from './src/ui/SettingsScreen';
+import { TripDetailsScreen } from './src/ui/TripDetailsScreen';
 import { C, ROW, S } from './src/ui/theme';
 
 type Tab = 'notes' | 'done';
-type Screen = Tab | 'settings';
+type Screen = Tab | 'settings' | 'trip';
 
 export function App() {
   return (
@@ -110,7 +111,8 @@ function Root() {
       <View style={{ flex: 1 }}>
         {screen === 'notes' && <NotesScreen onEdit={setDraft} onSettings={openSettings} />}
         {screen === 'done' && <DoneScreen onEdit={setDraft} onSettings={openSettings} />}
-        {screen === 'settings' && <SettingsScreen onBack={() => setScreen(lastTab)} />}
+        {screen === 'settings' && <SettingsScreen onBack={() => setScreen(lastTab)} onTrip={() => setScreen('trip')} />}
+        {screen === 'trip' && <TripDetailsScreen onBack={() => setScreen('settings')} />}
         {resultVisible && goResult ? (
           <View style={styles.bottomWrap}>
             <GoResultToast key={goResult.at} result={goResult} />

@@ -107,7 +107,7 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
 | `src/ui/GoCheckCard.tsx` | «رحت له؟» بعلامة صح لكل غرض (من `src/core/items.ts`)، و`GoResultToast`. |
 | `src/state/store.ts`, `src/ui/` | المخزن والواجهات، بنفس أنماط الويب. |
-| `src/services/tripLog.ts`, `public/trips.html` | **مؤقت للاختبار:** سجل المشوار (يتشغّل من «إعدادات متقدمة») يرتفع لجدول `trip_logs`، وصفحة `/trips.html` تعرضه على خريطة. ينشالون مع الجدول بعد الاختبار (التفاصيل في PROGRESS.md). |
+| `src/services/tripLog.ts`, `tripDetails.ts`, `src/ui/TripDetailsScreen.tsx`, `TripMap(.web).tsx`, `tripMapHtml.ts` | **مؤقت للاختبار:** «سجّل مشاويري» في الإعدادات يسجّل المشوار، وشاشة «تفاصيل المشوار» تعرضه (الحالي وآخر ١٠، من الجوال نفسه) على خريطة Leaflet داخل WebView (Expo Go) أو iframe (المتصفح)، ويرتفع لحاله لجدول `trip_logs` بعد كل مشوار. ينشالون مع الجدول و`react-native-webview` بعد الاختبار (التفاصيل في PROGRESS.md). |
 
 - **كل تذكير «عند المرور» وله محل** (فئة أو براند): ما فيه «عند الوصول» ولا تنبيه بوقت. الوقت في الجملة يصير **آخر موعد**
   (`src/core/reminderInput.ts` → `toReminderInputs`، وكل غرض تذكير مستقل)، والجملة اللي ما لها محل («أتصل على أبوي») ما تنحفظ. السجل انشال كامل.
