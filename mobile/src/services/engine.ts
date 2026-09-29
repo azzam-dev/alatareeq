@@ -15,10 +15,10 @@ import { BRAND_BY_ID } from '../../../src/core/lexicon';
 import { KinematicsTracker, ModeTracker, type Sample } from '../../../src/core/motion';
 import { hasPlaceSource } from '../../../src/core/placeTiles';
 import type { CategoryId, EngineMode, Place, Reminder, Settings, SpecificPlace, SuppressReason, Trip } from '../../../src/core/types';
-import { OLAYA_ROUTE } from '../mock/olaya';
+import { TRIALS, type TrialId } from '../mock/trials';
 import { store, uid } from '../state/store';
 import { announce, dismissNotification, dismissStaleNotifications, notify, openInGoogleMaps } from './device';
-import { mockPlaces, tilePlaces } from './places';
+import { tilePlaces } from './places';
 import { RoutePlayer } from './routePlayer';
 import { tripLog } from './tripLog';
 
@@ -80,7 +80,7 @@ export interface EngineStatus {
   gpsError: string | null;
   /** المراقبة شغالة وما وصل أول موقع */
   waitingFix: boolean;
-  test: { progress: number; multiplier: number } | null;
+  test: { progress: number; multiplier: number; trial: TrialId } | null;
   alerts: ActiveAlert[];
 }
 
@@ -241,12 +241,12 @@ class Engine {
     } catch { /* تجاهل */ }
   }
 
-  startTest(multiplier: number) {
+  startTest(multiplier: number, trial: TrialId) {
     this.stopSource();
     if (this.modes.forceEnd() && this.trip) this.finishTrip();
     this.cands.clear();
-    this.emit({ source: 'test', gpsError: null, waitingFix: false, test: { progress: 0, multiplier }, candidates: [] });
-    this.player = new RoutePlayer(OLAYA_ROUTE, (s) => this.ingest(s), () => this.stopTest());
+    this.emit({ source: 'test', gpsError: null, waitingFix: false, test: { progress: 0, multiplier, trial }, candidates: [] });
+    this.player = new RoutePlayer(TRIALS[trial].route, (s) => this.ingest(s), () => this.stopTest());
     this.player.start(multiplier);
   }
 
@@ -300,8 +300,8 @@ class Engine {
     if (step.tripEnded) this.finishTrip();
     if (this.trip) tripLog.point(s.t, s.lat, s.lon, speed, heading);
 
-    // وأنت تسوق نطلب مربعات الطريق اللي قدامك لأنواع تذاكيرك، وتوصل مع المواقع الجاية
-    if (this.status.source === 'gps') tilePlaces.want(me, heading, categoriesOf(placeRems));
+    // وأنت تسوق (أو في المشوار التجريبي) نطلب مربعات الطريق اللي قدامك لأنواع تذاكيرك، وتوصل مع المواقع الجاية
+    if (this.status.source !== 'none') tilePlaces.want(me, heading, categoriesOf(placeRems));
     const places = this.placesFor(placeRems, me);
     if (this.trip && heading !== null && speed >= 3) {
       this.checkPassBy(me, heading, speed, s.t, placeRems, places, settings);
@@ -329,9 +329,7 @@ class Engine {
         out.push({ id: `sp:${p.id}`, name: p.name, lat: p.lat, lon: p.lon, categories: [], brands: [] });
       }
     }
-    // المشوار التجريبي على العليا بأماكنه الثابتة، عشان ما يصرف من رصيد TomTom
-    const source = this.status.source === 'test' ? mockPlaces : tilePlaces;
-    for (const p of source.near(me, PLACES_RADIUS_M)) {
+    for (const p of tilePlaces.near(me, PLACES_RADIUS_M)) {
       if (rems.some((r) => placeMatches(r, p))) out.push(p);
     }
     return out.filter((p) => !this.hiddenPlaces.has(p.id));

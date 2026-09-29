@@ -185,7 +185,9 @@ export function summarize(log: TripLog, rows: TileRow[], spent: number | null, l
       const r = log.responses.find((x) => x.alertId === a.id);
       return { t: a.t, placeId: a.placeId, title: a.title, items: a.items, answer: r ? ANSWER[r.action] ?? r.action : 'ما رديت' };
     }),
-    skipped: matchedIds.filter((id) => markOf(id, true) === 'skipped').map((id) => ({ placeId: id, name: nameOf(places.get(id)!), why: whyOf(id) })),
+    // «سبق ونبهناك عنه» معروف من التنبيهات فوق، فما نكرره لكل فرع
+    skipped: matchedIds.filter((id) => markOf(id, true) === 'skipped' && state.get(id)?.reason !== 'notified')
+      .map((id) => ({ placeId: id, name: nameOf(places.get(id)!), why: whyOf(id) })),
     gaps,
     cut: log.events.some((e) => e.kind === 'cut'),
     map: {

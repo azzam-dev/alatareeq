@@ -66,8 +66,8 @@ npm run functions # ينسخ ملفات src/core اللي تحتاجها دوا�
 
 Expo SDK 57 · React Native 0.86 · TypeScript (strict) · بدون خريطة. يُجرَّب على iPhone داخل Expo Go.
 التذاكير والإعدادات و`pendingGo` في AsyncStorage (ما فيه سجل). الأماكن وأنت تسوق **من TomTom عن طريق السيرفر بمربعات**
-(`tilePlaces` في `services/places.ts`، بنفس واجهة `PlacesSource` عشان تتبدّل لـ Google بعدين)، والمشوار التجريبي على أماكن العليا الثابتة
-(`mobile/src/mock/olaya.ts`) عشان ما يصرف رصيد TomTom. التحويلة تقديرية (بدون OSRM).
+(`tilePlaces` في `services/places.ts`، بنفس واجهة `PlacesSource` عشان تتبدّل لـ Google بعدين)، والمشوار التجريبي على مسارين ثابتين
+(`mobile/src/mock/trials.ts`: العليا في الرياض، وطريق الملك خالد في بريدة) **بأماكن TomTom نفسها** (أول مرة يصرف لكل مربع، وبعدها محفوظ). التحويلة تقديرية (بدون OSRM).
 المفاتيح في `mobile/.env.local` (مستثنى من git، ومتغيرات `EXPO_PUBLIC_*` تنقرأ وقت تشغيل الخادم فقط، فأعد تشغيله بعد أي تغيير):
 `EXPO_PUBLIC_TOMTOM_KEY`، و`EXPO_PUBLIC_SUPABASE_URL` و`EXPO_PUBLIC_SUPABASE_ANON_KEY` (المفتاح العام). لا تطبع قيمة مفتاح في أي مخرجات.
 
@@ -101,9 +101,9 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/ui/NotesScreen.tsx`, `DoneScreen.tsx`, `AddSheet.tsx` | «مذكرة» (اللي باقي، بالأولوية أو الموعد، و«انتهى» للي فات موعده)، «تمت» («جبتها» بفرز التاريخ/الفئة/المكان، و«انتهى موعدها»)، ونافذة + (تحفظ مباشرة لو فهمت الغرض ومحله، وإلا تفتح المحرر). |
 | `src/ui/CategoryPicker.tsx`, `DeadlineField.tsx`, `BrandField.tsx` | في المحرر: اختيار الفئة من نافذة ببحث، و«آخر موعد» (اليوم، الوقت نص ساعة نص ساعة، «ذكرني»)، و«براند أو اسم» مع «تقصد: …؟». |
 | `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
-| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`، وزر «لا» فيه «مو هذا المحل» و«مو بهالمشوار»، والتنبيه الجاي بعد ٢٠ ث لو رديت و٣ د لو ما رديت: `trip.nextAlertAt`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). على الويب الموقع من `navigator.geolocation` مباشرة (`startWebGps`)، لأن `watchPositionAsync` في `expo-location` للويب فيه خلل يضيّع المواقع. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
+| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`، وزر «لا» فيه «مو هذا المحل» و«مو بهالمشوار»، والتنبيه الجاي بعد ٢٠ ث لو رديت و٣ د لو ما رديت: `trip.nextAlertAt`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي، بنفس أماكن `tilePlaces`). على الويب الموقع من `navigator.geolocation` مباشرة (`startWebGps`)، لأن `watchPositionAsync` في `expo-location` للويب فيه خلل يضيّع المواقع. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
-| `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٩٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
+| `src/services/places.ts`, `src/mock/` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٩٠ يوم) للسواقة والمشوار التجريبي، و`branchOf`. مسارات المشوار التجريبي في `src/mock/trials.ts` (المسار بس). |
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
 | `src/ui/GoCheckCard.tsx` | «رحت له؟» بعلامة صح لكل غرض (من `src/core/items.ts`)، و`GoResultToast`. |
 | `src/state/store.ts`, `src/ui/` | المخزن والواجهات، بنفس أنماط الويب. |

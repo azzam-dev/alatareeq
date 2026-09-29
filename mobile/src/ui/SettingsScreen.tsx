@@ -4,6 +4,7 @@ import { AppState, Linking, Pressable, ScrollView, Text, View } from 'react-nati
 import { formatDetour, formatDistance, targetLabel } from '../../../src/core/compose';
 import { DEFAULT_SETTINGS, type Settings } from '../../../src/core/types';
 import { confirmDelete, notificationPermission, notify, requestNotifications, showNotice } from '../services/device';
+import { TRIALS, type TrialId } from '../mock/trials';
 import { engine, useEngine, type CandView } from '../services/engine';
 import { setTripLogOn, useTripLogOn } from '../services/tripLog';
 import { store, useStore } from '../state/store';
@@ -258,14 +259,24 @@ const CAND_STATUS: Record<CandView['status'], string> = {
 function TrialTrip() {
   const status = useEngine();
   const [mult, setMult] = useState(5);
+  const [trial, setTrial] = useState<TrialId>('olaya');
   const running = status.source === 'test' && status.test;
 
   return (
     <View style={[S.card, { borderColor: C.brand, borderWidth: 1.5 }]}>
       <HelpTitle
         title="جرّب بدون ما تسوق"
-        help="نمشّيك على شارع العليا (٧ كم) بأماكن حقيقية، عشان تشوف التنبيهات وأنت جالس. الأماكن التجريبية على هالشارع بس."
+        help="نمشّيك على شارع العليا في الرياض (٧ كم) أو طريق الملك خالد في بريدة (٨ كم)، والأماكن من TomTom مثل السواقة الحقيقية. أول مرة لكل نوع محل تصرف طلبات قليلة من الرصيد، وبعدها محفوظة."
       />
+      <View style={[S.row, { justifyContent: 'space-between' }]}>
+        <Text style={S.text}>الطريق</Text>
+        <Chips>
+          {(Object.keys(TRIALS) as TrialId[]).map((id) => (
+            <Chip key={id} label={TRIALS[id].label} on={(status.test?.trial ?? trial) === id}
+              onPress={() => { if (!running) setTrial(id); }} />
+          ))}
+        </Chips>
+      </View>
       <View style={[S.row, { justifyContent: 'space-between' }]}>
         <Text style={S.text}>السرعة</Text>
         <Chips>
@@ -298,7 +309,7 @@ function TrialTrip() {
           )}
         </>
       ) : (
-        <Btn title="ابدأ المشوار التجريبي" kind="primary" onPress={() => engine.startTest(mult)} />
+        <Btn title="ابدأ المشوار التجريبي" kind="primary" onPress={() => engine.startTest(mult, trial)} />
       )}
     </View>
   );

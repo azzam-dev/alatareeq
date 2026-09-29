@@ -3,10 +3,9 @@ import { distanceM, type LatLon } from '../../../src/core/geo';
 import { BRANDS } from '../../../src/core/lexicon';
 import { mergeTilePlaces, tileOf, tilesAhead, TILE_TTL_DAYS, type TilePlace } from '../../../src/core/placeTiles';
 import type { CategoryId, Place, SpecificPlace } from '../../../src/core/types';
-import { OLAYA_PLACES } from '../mock/olaya';
 import { tripLog } from './tripLog';
 
-/** مصدر الأماكن: تجريبي (العليا) للمشوار التجريبي، ومربعات TomTom من السيرفر وأنت تسوق */
+/** مصدر الأماكن: مربعات TomTom من السيرفر، وأنت تسوق وفي المشوار التجريبي */
 export interface PlacesSource {
   near(me: LatLon, radiusM: number): Place[];
 }
@@ -18,12 +17,6 @@ function brandsOf(texts: string[]): string[] {
   return brandRes.filter((b) => texts.some((t) => b.re.test(t))).map((b) => b.id);
 }
 
-const MOCK = OLAYA_PLACES.map((p): Place => ({ ...p, brands: brandsOf([p.name]) }));
-
-/** أماكن حقيقية على شارع العليا فقط، للمشوار التجريبي عشان ما يصرف من رصيد TomTom */
-export const mockPlaces: PlacesSource = {
-  near: (me, radiusM) => MOCK.filter((p) => distanceM(me, p) <= radiusM),
-};
 
 // ——— مربعات TomTom ———
 
@@ -146,10 +139,10 @@ export const tilePlaces = new TilePlaces();
 
 /** فرع مكان محفوظ قبل ما نحفظ الفرع مع التذكير */
 export function branchOf(id: string): string | undefined {
-  return (MOCK.find((p) => p.id === id) ?? tilePlaces.byId(id))?.branch;
+  return tilePlaces.byId(id)?.branch;
 }
 
 /** فئات مكان محفوظ (وين خلّصت الغرض)، لفرز «تمت» بالفئة */
 export function placeCategories(p: SpecificPlace): CategoryId[] | undefined {
-  return (MOCK.find((m) => m.id === p.id) ?? tilePlaces.byId(p.id))?.categories;
+  return tilePlaces.byId(p.id)?.categories;
 }
