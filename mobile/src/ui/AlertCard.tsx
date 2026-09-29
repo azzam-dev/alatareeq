@@ -6,9 +6,10 @@ import { C, ROW } from './theme';
 interface Action { action: string; label: string }
 
 const ACTIONS: Action[] = [{ action: 'go', label: 'اذهب' }, { action: 'done', label: 'تم' }, { action: 'no', label: 'لا' }];
-/** «لا» تفرّق بين إنك ما تبي هالمحل، وإنك ما تبي تخلّص الغرض بهالمشوار أصلًا */
+/** «لا» تفرّق بين إنك ما تبي هالمحل، أو ما تبي تخلّص الغرض بهالمشوار أصلًا، أو المحل سكّر نهائيًا */
 const NO_ACTIONS: Action[] = [
-  { action: 'notHere', label: 'مو هذا المحل' }, { action: 'later', label: 'مو بهالمشوار' }, { action: 'back', label: 'رجوع' },
+  { action: 'notHere', label: 'مو هذا المحل' }, { action: 'later', label: 'مو بهالمشوار' },
+  { action: 'closed', label: 'المحل مقفل' }, { action: 'back', label: 'رجوع' },
 ];
 
 export function AlertCard({ alert, queued = 0 }: { alert: ActiveAlert; queued?: number }) {
@@ -35,10 +36,10 @@ export function AlertCard({ alert, queued = 0 }: { alert: ActiveAlert; queued?: 
       </View>
       <Text style={styles.sub}>{alert.sub}</Text>
       {why && alert.why && <Text style={styles.why}>{alert.why}</Text>}
-      <View style={[styles.line, styles.actions]}>
+      <View style={[styles.line, styles.actions, no && { flexWrap: 'wrap' }]}>
         {(no ? NO_ACTIONS : ACTIONS).map((a, i) => (
           <Pressable key={a.action} accessibilityRole="button" onPress={() => press(a.action)}
-            style={({ pressed }) => [styles.action, i === 0 && styles.actionMain, pressed && { opacity: 0.8 }]}>
+            style={({ pressed }) => [styles.action, no && styles.actionHalf, i === 0 && styles.actionMain, pressed && { opacity: 0.8 }]}>
             <Text style={[styles.actionText, i === 0 && { color: bg }]}>{a.label}</Text>
           </Pressable>
         ))}
@@ -60,5 +61,7 @@ const styles = StyleSheet.create({
   actions: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.25)', paddingTop: 10 },
   action: { flex: 1, minHeight: 52, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
   actionMain: { backgroundColor: '#FFFFFF' },
+  // خيارات «لا» الأربعة: صفين
+  actionHalf: { flexBasis: '45%', flexGrow: 1 },
   actionText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
 });

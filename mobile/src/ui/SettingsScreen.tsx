@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, type Settings } from '../../../src/core/types';
 import { confirmDelete, notificationPermission, notify, requestNotifications, showNotice } from '../services/device';
 import { TRIALS, type TrialId } from '../mock/trials';
 import { engine, useEngine, type CandView } from '../services/engine';
+import { undoClosed, useMyClosed } from '../services/closedPlaces';
 import { setTripLogOn, useTripLogOn } from '../services/tripLog';
 import { store, useStore } from '../state/store';
 import { formatClock } from './format';
@@ -144,6 +145,7 @@ export function SettingsScreen({ onBack, onTrip }: { onBack: () => void; onTrip:
       </View>
 
       <Preferences />
+      <ClosedPlaces />
 
       <TrialTrip />
       <TripLogCard onOpen={onTrip} />
@@ -195,6 +197,31 @@ function TripLogCard({ onOpen }: { onOpen: () => void }) {
       />
       <Btn title="تفاصيل المشوار" onPress={onOpen} />
     </View>
+  );
+}
+
+/** محلات بلّغت إنها مقفلة نهائيًا (`services/closedPlaces.ts`)، وترجّعها لو غلطت */
+function ClosedPlaces() {
+  const mine = useMyClosed();
+  const list = useMemo(() => Object.entries(mine).sort((a, b) => b[1].at - a[1].at), [mine]);
+  if (!list.length) return null;
+  return (
+    <>
+      <HelpTitle
+        title="محلات بلّغت إنها مقفلة"
+        help="ما ننبهك عليها. ولما يبلّغ عن المحل ٣ أشخاص ينشال عند الكل. لو غلطت اضغط ✕ ويرجع."
+      />
+      <View style={S.card}>
+        {list.map(([id, r]) => (
+          <View key={id} style={[S.row, { justifyContent: 'space-between', gap: 12 }]}>
+            <Text style={[S.text, { flex: 1 }]}>{r.name}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`رجّع ${r.name}`} hitSlop={10} onPress={() => undoClosed(id)}>
+              <Text style={{ color: C.sub, fontSize: 18, fontWeight: '700' }}>✕</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </>
   );
 }
 

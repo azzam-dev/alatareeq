@@ -49,6 +49,7 @@ export function GoCheckCard({ pending }: { pending: PendingGo }) {
             <Btn title="تم" kind="primary" flex onPress={() => engine.confirmGo(foundFor([rows[0].key]))} />
             <Btn title="ما تم" flex onPress={() => engine.confirmGo({})} />
           </View>
+          <ClosedLink />
         </>
       ) : (
         <>
@@ -64,9 +65,19 @@ export function GoCheckCard({ pending }: { pending: PendingGo }) {
             );
           })}
           <Btn title="حفظ" kind="primary" onPress={() => engine.confirmGo(foundFor(checked))} />
+          <ClosedLink />
         </>
       )}
     </View>
+  );
+}
+
+/** لقى المحل مسكّر نهائيًا: الأغراض تبقى وتنبه عند غيره، والمحل ما ينبه أبد */
+function ClosedLink() {
+  return (
+    <Pressable accessibilityRole="button" hitSlop={8} onPress={() => engine.confirmGo({}, true)} style={{ alignSelf: 'center', paddingTop: 2 }}>
+      <Text style={[S.sub, { textDecorationLine: 'underline' }]}>المحل مقفل نهائيًا</Text>
+    </Pressable>
   );
 }
 

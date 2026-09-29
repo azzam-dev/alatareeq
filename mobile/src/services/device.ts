@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
 import { Alert, AppState, Linking, Platform, Vibration } from 'react-native';
+import { cityOf } from '../../../src/core/cities';
 import type { LatLon } from '../../../src/core/geo';
 import type { Settings } from '../../../src/core/types';
 
@@ -202,14 +203,16 @@ export function openInGoogleMaps(p: LatLon) {
 
 /**
  * يفتح صفحة مكان محفوظ (وين خلّصت الغرض) في خرائط Google، بدون ملاحة.
- * نبحث باسم المحل حول موقعه، لأن الإحداثيات لحالها تفتح نقطة مو المحل،
- * والاسم لحاله ممكن يفتح فرع ثاني. الدقيق ١٠٠٪ يجي مع رقم المكان من Google Places.
+ * نبحث باسم المحل وحيّه ومدينته حول موقعه («صيدلية أجر وعافية الصفراء بريدة»)، لأن الإحداثيات لحالها تفتح نقطة مو المحل،
+ * والاسم لحاله ممكن يفتح فرع ثاني. المدينة من الإحداثيات (`cityOf`) لأن أماكن TomTom فيها الحي بس.
+ * الدقيق ١٠٠٪ يجي مع رقم المكان من Google Places.
  */
 export function openPlaceInGoogleMaps(p: LatLon & { name: string; branch?: string }) {
   const ll = `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
   // العنوان المعروض فيه النوع قبل الاسم («صيدلية · كنوز»)، والبحث يبي الاسم بس، ومعه الفرع يضيّق الفروع
   const name = p.name.split(' · ').pop()?.trim() ?? '';
-  const q = encodeURIComponent([name, p.branch].filter(Boolean).join(' '));
+  const city = cityOf(p);
+  const q = encodeURIComponent([name, p.branch, city !== p.branch ? city : undefined].filter(Boolean).join(' '));
   const web = name
     ? `https://www.google.com/maps/search/${q}/@${ll},17z`
     : `https://www.google.com/maps/search/?api=1&query=${ll}`;

@@ -20,6 +20,7 @@ import { store, uid } from '../state/store';
 import { announce, dismissNotification, dismissStaleNotifications, notify, openInGoogleMaps } from './device';
 import { tilePlaces } from './places';
 import { RoutePlayer } from './routePlayer';
+import { isClosed, reportClosed } from './closedPlaces';
 import { tripLog } from './tripLog';
 
 /** pass = على طريقك */
@@ -332,7 +333,7 @@ class Engine {
     for (const p of tilePlaces.near(me, PLACES_RADIUS_M)) {
       if (rems.some((r) => placeMatches(r, p))) out.push(p);
     }
-    return out.filter((p) => !this.hiddenPlaces.has(p.id));
+    return out.filter((p) => !this.hiddenPlaces.has(p.id) && !isClosed(p.id));
   }
 
   /** سجل المشوار (للاختبار): المحلات المطابقة وكل تغيير في حالتها */
@@ -496,8 +497,13 @@ class Engine {
         store.updateReminders(ids, () => ({ snoozedTripId: this.trip?.id ?? 'none' }));
         break;
       case 'notHere':
-        // «مو هذا المحل»: هالفرع ما ينبه بهالمشوار، والأغراض تنبه عند غيره
-        if (a.place) this.hiddenPlaces.add(a.place.id);
+      case 'closed':
+        // «مو هذا المحل»: هالفرع ما ينبه بهالمشوار. «المحل مقفل»: ما ينبه أبد، وينشال عند الكل بعد ٣ تبليغات.
+        // وفي الحالتين الأغراض تنبه عند غيره
+        if (a.place) {
+          this.hiddenPlaces.add(a.place.id);
+          if (action === 'closed') reportClosed(a.place.id, a.title);
+        }
         if (trip) ids.forEach((id) => { delete trip.notified[id]; });
         break;
     }
@@ -508,10 +514,15 @@ class Engine {
    * جواب «خلصت؟» بعد «اذهب». اللي تم يتسكّر ومعه المكان؛ واللي ما تم يرجع مثل ما كان بالضبط:
    * ما نستبعد المكان ولا البراند، لأن الغرض ممكن يكون في فرع ثاني أو حتى في نفس الفرع بعدين.
    * found: لكل تذكير، الأغراض اللي حصلها (بنفس نصوص `reminderItems`)
+   * closed: لقى المحل مسكّر نهائيًا: ما ينبه عليه أبد، وما نكتب «ما حصلته فيه»
    */
-  confirmGo(found: Record<string, string[]>) {
+  confirmGo(found: Record<string, string[]>, closed = false) {
     const p = store.get().pendingGo;
     if (!p) return;
+    if (closed) {
+      reportClosed(p.place.id, p.place.name);
+      tripLog.event(this.engineNow(), 'closed', `بلّغت إن ${p.place.name} مقفل`);
+    }
     const now = Date.now();
     const active = store.get().reminders.filter((r) => p.reminderIds.includes(r.id) && r.status === 'active');
     const got: string[] = [];
@@ -529,7 +540,7 @@ class Engine {
       }
       notDone.push(r.id);
       // «ما حصلته في بنده» معلومة بس، والتنبيه يبقى بأي فرع
-      const notFoundAt = { place: p.place, at: now };
+      const notFoundAt = closed ? undefined : { place: p.place, at: now };
       if (!yes.length) {
         store.updateReminder(r.id, { snoozedTripId: undefined, notFoundAt });
       } else {

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { targetLabel } from '../../../src/core/compose';
 import type { CategoryId, Place, Reminder, Settings } from '../../../src/core/types';
+import { deviceId } from './deviceId';
 
 /**
  * مؤقت للاختبار: يسجّل المشوار كامل، وشاشة «تفاصيل المشوار» تعرضه (الحالي وآخر ١٠)، ويرتفع لحاله لجدول `trip_logs`
@@ -11,7 +12,6 @@ import type { CategoryId, Place, Reminder, Settings } from '../../../src/core/ty
 const URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const ON_KEY = 'alatareeq:triplog:on';
-const DEVICE_KEY = 'alatareeq:triplog:device';
 /** المشوار الحالي (ينحفظ كل شوي عشان لو انقفلت الصفحة) واللي ما ارتفع */
 const CURRENT_KEY = 'alatareeq:triplog:current';
 const PENDING_KEY = 'alatareeq:triplog:pending';
@@ -268,7 +268,7 @@ async function flush(): Promise<number> {
   return left.length;
 }
 
-/** إضافة بس (الجدول ما يسمح بتعديل): رفع نفس المشوار مرتين يطلع سجلين، والصفحة تعرض الأحدث لكل مشوار */
+/** إضافة بس (الجدول ما يسمح بتعديل): رفع نفس المشوار مرتين يطلع سجلين، والأحدث هو الكامل */
 async function upload(log: TripLog): Promise<boolean> {
   if (!URL || !KEY) return false;
   try {
@@ -280,17 +280,5 @@ async function upload(log: TripLog): Promise<boolean> {
     return r.ok;
   } catch {
     return false;
-  }
-}
-
-async function deviceId(): Promise<string> {
-  try {
-    const have = await AsyncStorage.getItem(DEVICE_KEY);
-    if (have) return have;
-    const id = Math.random().toString(36).slice(2, 10);
-    await AsyncStorage.setItem(DEVICE_KEY, id);
-    return id;
-  } catch {
-    return 'unknown';
   }
 }
