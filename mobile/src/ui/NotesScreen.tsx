@@ -115,7 +115,6 @@ function Row({ r, first, onOpen }: { r: Reminder; first: boolean; onOpen: () => 
         )}
         <Text style={[S.sub, overdue && { color: C.bad, fontWeight: '600' }]}>
           {reminderMeta(r).join(' · ')}
-          {r.remindOnReturn ? ' · بنذكرك بالرجعة' : ''}
         </Text>
       </Pressable>
       {overdue && (

@@ -117,6 +117,8 @@ export interface Trip {
   endedAt?: number;
   alerts: number;
   lastAlertAt?: number;
+  /** لا تنبيه قبل هذا الوقت (الجوال: حسب ردك على اللي قبله). غيابه = `cooldownMin` من `lastAlertAt` */
+  nextAlertAt?: number;
   /** reminderId → placeId اللي نبهنا عنه */
   notified: Record<string, string>;
   /** أماكن سألنا عنها «تجاوزت المكان؟» */

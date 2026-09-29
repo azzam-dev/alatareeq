@@ -31,8 +31,10 @@ type ActionHandler = (alertId: string, action: string) => void;
 
 /** أزرار كل نوع تنبيه (نفس أزرار بطاقة التنبيه داخل التطبيق) */
 const CATEGORIES: Record<string, { identifier: string; buttonTitle: string; foreground?: boolean }[]> = {
-  pass: [{ identifier: 'go', buttonTitle: 'اذهب', foreground: true }, { identifier: 'done', buttonTitle: 'تم' }, { identifier: 'later', buttonTitle: 'لاحقًا' }],
-  passed: [{ identifier: 'return', buttonTitle: 'ذكرني بالرجعة' }, { identifier: 'no', buttonTitle: 'لا' }],
+  pass: [
+    { identifier: 'go', buttonTitle: 'اذهب', foreground: true }, { identifier: 'done', buttonTitle: 'تم' },
+    { identifier: 'notHere', buttonTitle: 'مو هذا المحل' }, { identifier: 'later', buttonTitle: 'مو بهالمشوار' },
+  ],
 };
 
 /**
@@ -176,9 +178,25 @@ export function announce(s: Settings, spoken: string | null) {
 
 // ——— «اذهب» ———
 
+/**
+ * نسخة المتصفح في الجوال تفتح الرابط بنفس التبويب: `Linking.openURL` يفتح تبويب جديد، وiPhone يحوّله
+ * لتطبيق Google Maps ويخلي التبويب فاضي، فلما ترجع لـ Safari تلقى صفحة بيضاء والتطبيق في تبويب ثاني.
+ * بنفس التبويب: لو التطبيق موجود ينفتح وصفحتنا تبقى، ولو مو موجود تنفتح الخرائط والرجوع يرجّعك.
+ * في الكمبيوتر تبويب جديد عشان ما تطلع من التطبيق.
+ */
+function openWebUrl(url: string) {
+  try {
+    const ua = navigator.userAgent;
+    const phone = /iPhone|iPad|iPod|Android/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (phone) { window.location.assign(url); return; }
+  } catch { /* تجاهل */ }
+  Linking.openURL(url).catch(() => undefined);
+}
+
 /** يفتح خرائط Google على المكان ويبدأ الملاحة (تطبيق Google Maps لو موجود، وإلا المتصفح) */
 export function openInGoogleMaps(p: LatLon) {
   const url = `https://www.google.com/maps/dir/?api=1&destination=${p.lat.toFixed(6)},${p.lon.toFixed(6)}&travelmode=driving`;
+  if (Platform.OS === 'web') { openWebUrl(url); return; }
   Linking.openURL(url).catch(() => undefined);
 }
 
@@ -195,7 +213,8 @@ export function openPlaceInGoogleMaps(p: LatLon & { name: string; branch?: strin
   const web = name
     ? `https://www.google.com/maps/search/${q}/@${ll},17z`
     : `https://www.google.com/maps/search/?api=1&query=${ll}`;
-  if (Platform.OS === 'web' || !name) {
+  if (Platform.OS === 'web') { openWebUrl(web); return; }
+  if (!name) {
     Linking.openURL(web).catch(() => undefined);
     return;
   }

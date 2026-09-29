@@ -6,7 +6,7 @@ import {
 } from '../../../src/core/compose';
 import { estimateDetourFallback, type DetourResult } from '../../../src/core/detour';
 import {
-  checkReminders, detourGate, placeMatches, preGate, rankCandidates, sortReminders,
+  checkReminders, detourGate, IGNORE_GAP_MS, placeMatches, preGate, rankCandidates, REPLY_GAP_MS, sortReminders,
   type Candidate, type GateContext,
 } from '../../../src/core/gate';
 import { distanceM, relativeTo, type LatLon, type Relative } from '../../../src/core/geo';
@@ -20,9 +20,10 @@ import { store, uid } from '../state/store';
 import { announce, dismissNotification, dismissStaleNotifications, notify, openInGoogleMaps } from './device';
 import { mockPlaces, tilePlaces } from './places';
 import { RoutePlayer } from './routePlayer';
+import { tripLog } from './tripLog';
 
-/** pass = على طريقك، passed = تجاوزت المكان؟ */
-export type AlertKind = 'pass' | 'passed';
+/** pass = على طريقك */
+export type AlertKind = 'pass';
 
 export interface ActiveAlert {
   id: string;
@@ -51,6 +52,8 @@ interface CandState {
   reason?: SuppressReason;
   alertId?: string;
   responded?: boolean;
+  /** آخر حالة انسجلت في سجل المشوار */
+  logged?: string;
 }
 
 export interface CandView {
@@ -81,11 +84,10 @@ export interface EngineStatus {
   alerts: ActiveAlert[];
 }
 
-const ALERT_PRIORITY: Record<AlertKind, number> = { pass: 0, passed: 1 };
 const NEARBY_M = 4000;
 const PLACES_RADIUS_M = 9000;
 /** عمر التنبيه بوقت المشوار (في التجريبي يتسارع مع السرعة) */
-const ALERT_TTL_MS: Record<AlertKind, number> = { pass: 90_000, passed: 60_000 };
+const ALERT_TTL_MS = 90_000;
 /** احتياط بالساعة الحقيقية لو وقف وقت المشوار (ما فيه تحديثات موقع) */
 const STALE_REAL_MS = 15 * 60_000;
 /** التنبيهات كلها خانة وحدة في مركز الإشعارات: الجديد يستبدل القديم */
@@ -103,6 +105,8 @@ class Engine {
   private trip: Trip | null = null;
   private cands = new Map<string, CandState>();
   private cooldownUntil?: number;
+  /** «مو هذا المحل»: فروع ما ننبه عليها لين ينتهي المشوار */
+  private hiddenPlaces = new Set<string>();
   private watch: Location.LocationSubscription | null = null;
   private player: RoutePlayer | null = null;
   /** يزيد مع كل تغيير مصدر، عشان بدء قديم (ينتظر صلاحية) ما يكمل بعد إيقافه */
@@ -135,6 +139,7 @@ class Engine {
     // إشعارات جلسة سابقة ما لها تنبيه شغال
     void dismissStaleNotifications([]);
     AppState.addEventListener('change', (st) => {
+      if (this.trip) tripLog.event(Date.now(), st === 'active' ? 'foreground' : 'background');
       if (st !== 'active') return;
       this.sweepAlerts();
       void dismissStaleNotifications(this.alerts.map((a) => a.id));
@@ -281,7 +286,9 @@ class Engine {
     const reminders = store.get().reminders;
     const { speed, heading } = this.kin.push(s);
     const me = { lat: s.lat, lon: s.lon };
-    const placeRems = reminders.filter((r) => r.status === 'active' && r.target);
+    // اللي تنتظر جواب «رحت له؟» ما تنبه، وإلا يطلع تنبيه عن نفس المحل وأنت عنده
+    const waiting = store.get().pendingGo?.reminderIds ?? [];
+    const placeRems = reminders.filter((r) => r.status === 'active' && r.target && !waiting.includes(r.id));
 
     if (this.trip && this.lastPos) this.trip.distanceM += distanceM(this.lastPos, me);
     this.lastPos = me;
@@ -289,8 +296,9 @@ class Engine {
 
     const approaching = [...this.cands.values()].some((c) => c.status === 'pending');
     const step = this.modes.step({ t: s.t, speed, hasPlaceReminders: placeRems.length > 0, approaching, cooldownUntil: this.cooldownUntil });
-    if (step.tripStarted) this.beginTrip(s.t);
+    if (step.tripStarted) this.beginTrip(s.t, placeRems);
     if (step.tripEnded) this.finishTrip();
+    if (this.trip) tripLog.point(s.t, s.lat, s.lon, speed, heading);
 
     // وأنت تسوق نطلب مربعات الطريق اللي قدامك لأنواع تذاكيرك، وتوصل مع المواقع الجاية
     if (this.status.source === 'gps') tilePlaces.want(me, heading, categoriesOf(placeRems));
@@ -299,6 +307,7 @@ class Engine {
       this.checkPassBy(me, heading, speed, s.t, placeRems, places, settings);
     }
     this.sweepAlerts();
+    if (tripLog.active) this.logCands(s.t, places);
 
     this.emit({
       mode: step.mode,
@@ -325,18 +334,33 @@ class Engine {
     for (const p of source.near(me, PLACES_RADIUS_M)) {
       if (rems.some((r) => placeMatches(r, p))) out.push(p);
     }
-    return out;
+    return out.filter((p) => !this.hiddenPlaces.has(p.id));
   }
 
-  private beginTrip(t: number) {
+  /** سجل المشوار (للاختبار): المحلات المطابقة وكل تغيير في حالتها */
+  private logCands(t: number, places: Place[]) {
+    for (const p of places) tripLog.place(p, t);
+    for (const c of this.cands.values()) {
+      const key = `${c.status}|${c.reason ?? ''}`;
+      if (c.logged === key) continue;
+      c.logged = key;
+      tripLog.cand(t, c.place.id, c.status, c.reason, c.rel.distance, c.rel.angle, c.detour?.seconds);
+    }
+  }
+
+  private beginTrip(t: number, rems: Reminder[]) {
     this.trip = { id: uid(), startedAt: t, alerts: 0, notified: {}, askedPassed: [], distanceM: 0 };
+    tripLog.start(this.trip.id, this.status.source === 'test' ? 'test' : 'gps', t, this.settings(), rems);
     this.cands.clear();
+    this.hiddenPlaces.clear();
     this.cooldownUntil = undefined;
   }
 
   private finishTrip() {
+    tripLog.finish(this.lastT);
     this.trip = null;
     this.cands.clear();
+    this.hiddenPlaces.clear();
     this.cooldownUntil = undefined;
   }
 
@@ -397,11 +421,13 @@ class Engine {
     const alertId = uid();
     trip.alerts += 1;
     trip.lastAlertAt = t;
+    // يقصر لو رديت عليه (`respond`)
+    trip.nextAlertAt = t + IGNORE_GAP_MS;
     rems.forEach((r) => { trip.notified[r.id] = best.place.id; });
     this.cooldownUntil = t + 45_000;
     c.status = 'alerted';
     c.alertId = alertId;
-    store.updateReminders(rems.map((r) => r.id), () => ({ lastNotifiedAt: Date.now(), remindOnReturn: false }));
+    store.updateReminders(rems.map((r) => r.id), () => ({ lastNotifiedAt: Date.now() }));
 
     const why = whyAlertText({ angle: c.rel.angle, detourSeconds: best.detourSeconds, approximate: !!c.detour?.approximate, settings, alertNo: trip.alerts });
     const alert: ActiveAlert = {
@@ -410,25 +436,20 @@ class Engine {
       sub: `${formatDetour(best.detourSeconds)} · عندك: ${itemsText(rems)}`,
       why, place: best.place, reminderIds: rems.map((r) => r.id), createdAt: Date.now(),
     };
+    tripLog.alert({
+      t, id: alertId, placeId: best.place.id, title: alert.title, items: itemsText(rems),
+      distance: Math.round(best.distance), detour: best.detourSeconds, why,
+    });
     this.pushAlert(alert, spokenAlert(best.place, best.distance, best.detourSeconds, rems));
   }
 
-  /** المكان صار وراك: لو نبهناك وما رديت، نسأل مرة وحدة عن الرجعة */
+  /**
+   * المكان صار وراك أو على جنبك (مريته أو لفّيت): تنبيهه ما عاد له داعي.
+   * ما نسأل «تجاوزت المكان؟»: الغرض يبقى وينبهك أول ما تمر فرع ثاني، بطريق الرجعة أو غيره.
+   */
   private onPassed(c: CandState) {
-    const prev = c.status;
     c.status = 'passed';
-    const trip = this.trip;
-    if (!trip || prev !== 'alerted' || !c.alertId) return;
-
-    const stillShowing = this.alerts.some((a) => a.id === c.alertId);
-    if (stillShowing) this.respond(c.alertId, 'ignored');
-    if (c.responded || trip.askedPassed.includes(c.place.id)) return;
-    trip.askedPassed.push(c.place.id);
-    const ids = Object.entries(trip.notified).filter(([, p]) => p === c.place.id).map(([r]) => r);
-    this.pushAlert({
-      id: uid(), kind: 'passed', label: 'تجاوزت المكان؟', title: placeTitle(c.place),
-      sub: 'أذكرك بطريق الرجعة؟', place: c.place, reminderIds: ids, createdAt: Date.now(),
-    }, null);
+    if (c.alertId && this.alerts.some((a) => a.id === c.alertId)) this.respond(c.alertId, 'ignored');
   }
 
   // ——— عرض التنبيهات والرد عليها ———
@@ -436,10 +457,9 @@ class Engine {
   private pushAlert(a: ActiveAlert, spoken: string | null) {
     // تنبيه جديد يستبدل القديم، فما يتكدس تحته تنبيه عن مكان فات
     for (const old of [...this.alerts]) this.respond(old.id, 'ignored');
-    a.expiresAt = this.engineNow() + ALERT_TTL_MS[a.kind];
+    a.expiresAt = this.engineNow() + ALERT_TTL_MS;
     a.notifId = DRIVE_NOTIFICATION;
     this.alerts.push(a);
-    this.alerts.sort((x, y) => ALERT_PRIORITY[x.kind] - ALERT_PRIORITY[y.kind]);
     announce(this.settings(), spoken);
     void notify({ alertId: a.id, identifier: a.notifId, title: `${a.label}: ${a.title}${a.distanceText ? ` · ${a.distanceText}` : ''}`, body: a.sub, category: a.kind });
     this.emit();
@@ -448,19 +468,25 @@ class Engine {
   respond(alertId: string, action: string) {
     const a = this.alerts.find((x) => x.id === alertId);
     if (!a) return;
+    tripLog.response(this.engineNow(), alertId, action);
     if (action === 'open') { this.emit(); return; } // ضغط الإشعار نفسه: التطبيق ينفتح والبطاقة باقية
     this.alerts = this.alerts.filter((x) => x.id !== alertId);
     if (a.notifId) void dismissNotification(a.notifId);
     const ids = a.reminderIds;
     const c = a.place ? this.cands.get(a.place.id) : undefined;
-    if (c && action !== 'ignored') c.responded = true;
+    const trip = this.trip;
+    if (action !== 'ignored') {
+      if (c) c.responded = true;
+      // رديت فأنت منتبه: التالي يقدر يجي بعد شوي بدل ما ننتظر مدة التجاهل
+      if (trip) trip.nextAlertAt = Math.min(trip.nextAlertAt ?? Infinity, this.engineNow() + REPLY_GAP_MS);
+    }
 
     switch (action) {
       case 'go':
         if (a.place) {
+          // قبل فتح الخرائط: في المتصفح ممكن تنقفل الصفحة، ولما يرجع للتطبيق نسأله «خلصت؟»
+          store.setPendingGo({ alertId, place: specificOf(a.place, a.title), reminderIds: ids, at: Date.now() });
           openInGoogleMaps(a.place);
-          // لما يرجع للتطبيق نسأله «خلصت؟»
-          if (a.kind === 'pass') store.setPendingGo({ alertId, place: specificOf(a.place, a.title), reminderIds: ids, at: Date.now() });
         }
         break;
       case 'done':
@@ -468,10 +494,13 @@ class Engine {
         store.updateReminders(ids, () => ({ status: 'done', doneAt: Date.now(), notFoundAt: undefined }));
         break;
       case 'later':
+        // «مو بهالمشوار»: الأغراض ما تنبه بأي محل لين ينتهي المشوار
         store.updateReminders(ids, () => ({ snoozedTripId: this.trip?.id ?? 'none' }));
         break;
-      case 'return':
-        store.updateReminders(ids, () => ({ remindOnReturn: true }));
+      case 'notHere':
+        // «مو هذا المحل»: هالفرع ما ينبه بهالمشوار، والأغراض تنبه عند غيره
+        if (a.place) this.hiddenPlaces.add(a.place.id);
+        if (trip) ids.forEach((id) => { delete trip.notified[id]; });
         break;
     }
     this.emit();
@@ -497,7 +526,7 @@ class Engine {
       got.push(...yes);
       left.push(...no);
       if (!no.length) {
-        store.updateReminder(r.id, { status: 'done', doneAt: now, donePlace: p.place, notFoundAt: undefined, remindOnReturn: false });
+        store.updateReminder(r.id, { status: 'done', doneAt: now, donePlace: p.place, notFoundAt: undefined });
         continue;
       }
       notDone.push(r.id);
@@ -509,7 +538,7 @@ class Engine {
         // حصل بعضها: اللي حصله تذكير منتهي لحاله، والتذكير يبقى بالباقي بس
         store.addReminder({
           ...r, id: uid(), title: joinItems(yes), status: 'done', doneAt: now, donePlace: p.place,
-          notFoundAt: undefined, remindOnReturn: false,
+          notFoundAt: undefined,
         });
         store.updateReminder(r.id, { title: joinItems(no), snoozedTripId: undefined, notFoundAt });
       }

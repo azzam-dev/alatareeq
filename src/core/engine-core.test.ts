@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { formatDetour, formatDistance } from './compose';
 import { estimateDetour } from './detour';
-import { checkReminders, detourGate, inQuietHours, placeMatches, preGate, rankCandidates } from './gate';
+import {
+  checkReminders, detourGate, IGNORE_GAP_MS, inQuietHours, placeMatches, preGate, rankCandidates, REPLY_GAP_MS,
+} from './gate';
 import { offset, relativeTo } from './geo';
 import { ModeTracker } from './motion';
 import { DEFAULT_SETTINGS, type Place, type Reminder, type Trip } from './types';
@@ -54,6 +56,13 @@ describe('gate', () => {
     expect(preGate({ angle: 5, along: 800, speedMs: 15 }, { ...ctx, trip: trip({ alerts: 3 }) })).toBe('budget');
     expect(preGate({ angle: 5, along: 800, speedMs: 15 }, { ...ctx, trip: trip({ alerts: 1, lastAlertAt: ctx.now - 60_000 }) })).toBe('cooldown');
     expect(preGate({ angle: 5, along: 800, speedMs: 15 }, { ...ctx, trip: trip({ alerts: 1, lastAlertAt: ctx.now - 5 * 60_000 }) })).toBeNull();
+  });
+  it('الجوال: وقت التنبيه الجاي يسبق مدة الإعدادات', () => {
+    const at = (over: Partial<Trip>) => preGate({ angle: 5, along: 800, speedMs: 15 }, { ...ctx, trip: trip({ alerts: 1, lastAlertAt: ctx.now - 30_000, ...over }) });
+    // رد على التنبيه قبل ٣٠ ثانية: ٢٠ ثانية تكفي، حتى لو الإعدادات ٤ دقايق
+    expect(at({ nextAlertAt: ctx.now - 30_000 + REPLY_GAP_MS })).toBeNull();
+    // ما رد: ننتظر ٣ دقايق
+    expect(at({ nextAlertAt: ctx.now - 30_000 + IGNORE_GAP_MS })).toBe('cooldown');
   });
   it('لاحقًا وسبق التنبيه', () => {
     const res = checkReminders([

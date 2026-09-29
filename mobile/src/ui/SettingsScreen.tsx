@@ -5,6 +5,7 @@ import { formatDetour, formatDistance, targetLabel } from '../../../src/core/com
 import { DEFAULT_SETTINGS, type Settings } from '../../../src/core/types';
 import { confirmDelete, notificationPermission, notify, requestNotifications, showNotice } from '../services/device';
 import { engine, useEngine, type CandView } from '../services/engine';
+import { setTripLogOn, tripLog, useTripLogOn } from '../services/tripLog';
 import { store, useStore } from '../state/store';
 import { formatClock } from './format';
 import { Btn, Chip, Chips, HelpDot, HelpTitle, ScreenHeader, Seg, Stepper, ToggleRow } from './parts';
@@ -110,12 +111,6 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           onMinus={() => set({ maxAlertsPerTrip: clamp(s.maxAlertsPerTrip - 1, 1, 6) })}
           onPlus={() => set({ maxAlertsPerTrip: clamp(s.maxAlertsPerTrip + 1, 1, 6) })}
         />
-        <Stepper
-          label="راحة بين كل تنبيه وتنبيه" show={`${s.cooldownMin} د`}
-          hint={`ما يجيك تنبيهين ورا بعض خلال ${minutes(s.cooldownMin)}.`}
-          onMinus={() => set({ cooldownMin: clamp(s.cooldownMin - 1, 1, 10) })}
-          onPlus={() => set({ cooldownMin: clamp(s.cooldownMin + 1, 1, 10) })}
-        />
       </View>
 
       <Text style={S.h2}>وقت الراحة</Text>
@@ -168,6 +163,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             />
           </View>
           <Btn title="رجّع الإعدادات الأصلية" onPress={() => set(DEFAULT_SETTINGS)} />
+          <TripLogRow />
         </View>
       )}
 
@@ -183,6 +179,28 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
       <Text style={[S.sub, { textAlign: 'center' }]}>عالطريق · تطبيق الجوال · نسخة تجريبية</Text>
     </ScrollView>
+  );
+}
+
+/** مؤقت للاختبار: يسجّل المشاوير ويرفعها لصفحة `trips.html` (`services/tripLog.ts`) */
+function TripLogRow() {
+  const on = useTripLogOn();
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <View style={{ gap: 8 }}>
+      <ToggleRow
+        label="سجّل مشاويري (للاختبار)"
+        hint="نسجّل مسارك والمحلات وقرارات التنبيه، ونرفعها بعد كل مشوار لصفحة الاختبار (‎/trips.html). أي أحد يعرف الصفحة يقدر يشوفها."
+        value={on} onChange={setTripLogOn}
+      />
+      {on && (
+        <Btn
+          title="ارفع المشوار الحين"
+          onPress={() => { setMsg('نرفع…'); void tripLog.uploadNow().then(setMsg); }}
+        />
+      )}
+      {on && msg && <Text style={S.sub}>{msg}</Text>}
+    </View>
   );
 }
 

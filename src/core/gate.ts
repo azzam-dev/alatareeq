@@ -69,10 +69,18 @@ export function preGate(input: PreGateInput, ctx: GateContext): SuppressReason |
   // أقل من ~٨ ثواني للمكان: ما فيه وقت تتصرف بأمان
   if (input.along < Math.max(150, input.speedMs * 8)) return 'late';
   if (trip.alerts >= s.maxAlertsPerTrip) return 'budget';
-  if (trip.lastAlertAt && now - trip.lastAlertAt < s.cooldownMin * 60_000) return 'cooldown';
+  const gapOver = trip.nextAlertAt !== undefined
+    ? now >= trip.nextAlertAt
+    : !trip.lastAlertAt || now - trip.lastAlertAt >= s.cooldownMin * 60_000;
+  if (!gapOver) return 'cooldown';
   if (inQuietHours(s, new Date(now))) return 'quiet';
   return null;
 }
+
+/** بعد ما ترد على تنبيه (أي زر): أقل وقت قبل اللي بعده، عشان ما يجيك تنبيهين فوق بعض */
+export const REPLY_GAP_MS = 20_000;
+/** بعد تنبيه ما رديت عليه: غالبًا مشغول، فننتظر أكثر */
+export const IGNORE_GAP_MS = 3 * 60_000;
 
 export function detourGate(detourSeconds: number, s: Settings): SuppressReason | null {
   return detourSeconds > s.maxDetourMin * 60 ? 'detour' : null;

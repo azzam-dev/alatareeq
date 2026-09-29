@@ -4,6 +4,7 @@ import { BRANDS } from '../../../src/core/lexicon';
 import { mergeTilePlaces, tileOf, tilesAhead, TILE_TTL_DAYS, type TilePlace } from '../../../src/core/placeTiles';
 import type { CategoryId, Place, SpecificPlace } from '../../../src/core/types';
 import { OLAYA_PLACES } from '../mock/olaya';
+import { tripLog } from './tripLog';
 
 /** مصدر الأماكن: تجريبي (العليا) للمشوار التجريبي، ومربعات TomTom من السيرفر وأنت تسوق */
 export interface PlacesSource {
@@ -69,8 +70,9 @@ class TilePlaces implements PlacesSource {
     if (!URL || !KEY || !categories.length || this.busy) return;
     const now = Date.now();
     const tiles = tilesAhead(me.lat, me.lon, heading);
-    const missing = tiles.flatMap((t) => categories.map((c) => `${t}|${c}`))
-      .filter((k) => { const e = this.entries.get(k); return !e || now - e.at > TTL_MS; });
+    const keys = tiles.flatMap((t) => categories.map((c) => `${t}|${c}`));
+    const missing = keys.filter((k) => { const e = this.entries.get(k); return !e || now - e.at > TTL_MS; });
+    tripLog.tiles(keys, missing);
     if (!missing.length) return;
     const key = missing.join(',');
     if (key === this.lastAsk.key && now - this.lastAsk.at < ASK_GAP_MS) return;
@@ -80,6 +82,7 @@ class TilePlaces implements PlacesSource {
 
   private async fetch(missing: string[]) {
     this.busy = true;
+    const started = Date.now();
     try {
       await this.loaded;
       const tiles = [...new Set(missing.map((k) => k.split('|')[0]))];
@@ -89,8 +92,12 @@ class TilePlaces implements PlacesSource {
         headers: { Authorization: `Bearer ${KEY}`, apikey: KEY!, 'Content-Type': 'application/json' },
         body: JSON.stringify({ tiles, categories }),
       });
-      if (!r.ok) return;
-      const j = (await r.json()) as { places?: TilePlace[]; done?: string[] };
+      if (!r.ok) {
+        tripLog.request({ t: started, asked: missing, done: [], pending: missing.length, ok: false, ms: Date.now() - started });
+        return;
+      }
+      const j = (await r.json()) as { places?: TilePlace[]; done?: string[]; pending?: number };
+      tripLog.request({ t: started, asked: missing, done: j.done ?? [], pending: j.pending ?? 0, ok: true, ms: Date.now() - started });
       const now = Date.now();
       const byKey = new Map<string, TilePlace[]>((j.done ?? []).map((k) => [k, []]));
       for (const p of j.places ?? []) {
@@ -101,6 +108,7 @@ class TilePlaces implements PlacesSource {
       this.rebuild();
       this.save();
     } catch {
+      tripLog.request({ t: started, asked: missing, done: [], pending: missing.length, ok: false, ms: Date.now() - started });
       // بدون نت: نكمل بالمحفوظ ونحاول مع الموقع الجاي
     } finally {
       this.busy = false;

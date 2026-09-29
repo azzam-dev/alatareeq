@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>مشاوير الاختبار</title>
+<!-- مؤقت للاختبار: يعرض سجلات المشاوير (جدول trip_logs) على خريطة. ينشال مع الجدول وsrc/services/tripLog.ts -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="trips-config.js"></script>
+<style>
+  :root {
+    --bg: #F4F2EE; --card: #FFFFFF; --ink: #1B2420; --sub: #5E6B65; --line: #E2DED6; --brand: #0E6B4E;
+    --ok: #1E8A5A; --bad: #C0392B; --warn: #C98A12; --muted: #9AA39F;
+    --phone: #2E9E6A; --db: #2F6FD6; --new: #E07B14; --none: #9AA39F;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; }
+  header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; }
+  select, button { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  button { cursor: pointer; }
+  #trips { flex: 1 1 220px; min-width: 0; max-width: 100%; }
+  html, body { overflow-x: hidden; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; height: calc(100vh - 56px); }
+  #mapwrap { position: relative; }
+  /* Leaflet يخرب مع RTL: الخريطة نفسها LTR، والنوافذ فوقها عربي */
+  #map { position: absolute; inset: 0; direction: ltr; }
+  .leaflet-popup-content, .leaflet-tooltip { direction: rtl; text-align: right; }
+  #timebar { position: absolute; z-index: 800; bottom: 12px; left: 12px; right: 12px; background: var(--card); border-radius: 12px; padding: 8px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.15); display: flex; gap: 10px; align-items: center; }
+  #timebar[hidden] { display: none; }
+  #timebar input { flex: 1; }
+  #legend { position: absolute; z-index: 800; top: 12px; right: 12px; background: var(--card); border-radius: 12px; padding: 8px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.15); font-size: 12.5px; max-width: 260px; }
+  #legend summary { cursor: pointer; font-weight: 600; }
+  #legend div div { display: flex; gap: 6px; align-items: center; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex: none; }
+  aside { overflow-y: auto; padding: 12px 16px 40px; border-inline-start: 1px solid var(--line); }
+  h2 { font-size: 16px; margin: 18px 0 6px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .stats b { display: block; font-size: 18px; }
+  .stats span { color: var(--sub); font-size: 12.5px; }
+  .row { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .sub { color: var(--sub); font-size: 13px; }
+  .tag { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: 12px; color: #fff; }
+  .click { cursor: pointer; }
+  .click:hover { background: #F7F5F1; }
+  .pin { width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 3px solid var(--muted); display: flex; align-items: center; justify-content: center; font-size: 15px; position: relative; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .pin.faded { opacity: .45; transform: scale(.8); }
+  .pin i { position: absolute; top: -7px; right: -7px; font-style: normal; font-size: 10px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .me { width: 16px; height: 16px; border-radius: 50%; background: var(--brand); border: 3px solid #fff; box-shadow: 0 0 0 2px var(--brand); }
+  .bell { font-size: 20px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  #msg { padding: 24px; color: var(--sub); }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    #mapwrap { height: 62vh; }
+    aside { border: 0; }
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121614; --card: #1C2320; --ink: #E8ECEA; --sub: #A3AEA9; --line: #2C3531; }
+    .click:hover { background: #232B28; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>مشاوير الاختبار</h1>
+  <select id="trips" aria-label="المشوار"></select>
+  <button id="reload">تحديث</button>
+  <span class="sub" id="status"></span>
+</header>
+<main>
+  <div id="mapwrap">
+    <div id="map"></div>
+    <details id="legend"><summary>دليل الألوان</summary><div id="legendBody"></div></details>
+    <div id="timebar" hidden>
+      <input id="time" type="range" min="0" value="0" aria-label="الوقت في المشوار">
+      <span id="timeText" class="sub"></span>
+    </div>
+  </div>
+  <aside id="panel"><div id="msg">نحمّل المشاوير…</div></aside>
+</main>
+<script>
+'use strict';
+const CFG = window.TRIPS_CONFIG || {};
+const HEAD = { apikey: CFG.key, Authorization: 'Bearer ' + CFG.key };
+const BUDGET = 2500;
+
+const CAT = {
+  pharmacy: ['💊', 'صيدلية'], grocery: ['🛒', 'بقالة'], bookstore: ['📚', 'مكتبة'], fuel: ['⛽', 'محطة وقود'], laundry: ['👔', 'مغسلة'],
+  charging: ['🔌', 'شحن سيارات'], toys: ['🧸', 'ألعاب'], electronics: ['💻', 'إلكترونيات'], mobile: ['📱', 'جوالات'], clothes: ['👕', 'ملابس'],
+  shoes: ['👟', 'أحذية'], perfume: ['🌸', 'عطور'], jewelry: ['💍', 'مجوهرات'], florist: ['💐', 'ورد'], gifts: ['🎁', 'هدايا'],
+  houseware: ['🍽️', 'أدوات منزلية'], furniture: ['🛋️', 'أثاث'], hardware: ['🔧', 'عدد وأدوات'], sports: ['⚽', 'رياضة'], pets: ['🐾', 'حيوانات'],
+  bakery: ['🥖', 'مخبز'], sweets: ['🍬', 'حلويات'], cafe: ['☕', 'مقهى'], restaurant: ['🍴', 'مطعم'], atm: ['🏧', 'صراف'], bank: ['🏦', 'بنك'],
+  clinic: ['🩺', 'عيادة'], hospital: ['🏥', 'مستشفى'], optician: ['👓', 'بصريات'], barber: ['💈', 'حلاق'], beauty: ['💅', 'تجميل'],
+  carWash: ['🚿', 'مغسلة سيارات'], carParts: ['⚙️', 'قطع غيار'], carRepair: ['🛠️', 'ورشة'], post: ['📮', 'بريد'], tailor: ['🧵', 'خياط'],
+  butcher: ['🥩', 'ملحمة'], mall: ['🏬', 'مول'], gym: ['🏋️', 'نادي'], produce: ['🥦', 'خضار'], fish: ['🐟', 'أسماك'], carpets: ['🧶', 'سجاد'],
+  curtains: ['🪟', 'ستائر'], lighting: ['💡', 'إنارة'], paint: ['🎨', 'دهانات'], building: ['🧱', 'مواد بناء'], garden: ['🪴', 'مشتل'],
+  kitchens: ['🚰', 'مطابخ'], cosmetics: ['💄', 'تجميل'], bags: ['👜', 'شنط'], print: ['🖨️', 'طباعة'], medicalSupplies: ['🩹', 'مستلزمات طبية'],
+  tires: ['🛞', 'كفرات'], carRental: ['🚗', 'تأجير'], vet: ['🐕', 'بيطري'],
+};
+const REASON = {
+  detour: 'التحويلة أكبر من حدك', behind: 'مو قدامك (الزاوية)', late: 'قريب مرة، ما فيه وقت', notified: 'سبق نبهناك عن الغرض',
+  snoozed: 'قلت «مو بهالمشوار»', budget: 'وصلنا حد التنبيهات بالمشوار', cooldown: 'بعد تنبيه قريب', quiet: 'ساعات الهدوء', notBefore: 'التذكير ما بدأ',
+};
+const ACTION = { go: 'اذهب', done: 'تم', later: 'مو بهالمشوار', notHere: 'مو هذا المحل', ignored: 'ما رد (انتهى أو انستبدل)', open: 'فتح الإشعار' };
+const STATUS = {
+  alerted: ['نبّهناك', 'var(--ok)'], rejected: ['ما نبّهنا', 'var(--bad)'], blocked: ['ما نبّهنا', 'var(--bad)'],
+  pending: ['نقيّمه', 'var(--warn)'], passed: ['تجاوزته', 'var(--muted)'], ring: ['طابق وما دخل النطاق', 'var(--muted)'], other: ['ما يخص تذاكيرك', 'var(--muted)'],
+};
+const SRC = { phone: ['من الجوال (محفوظة)', 'var(--phone)'], db: ['من قاعدة البيانات', 'var(--db)'], new: ['جديدة من TomTom', 'var(--new)'], none: ['ما رجعت', 'var(--none)'] };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtTime = (t) => new Date(t).toLocaleTimeString('ar-SA-u-nu-latn-ca-gregory', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+const fmtDate = (t) => new Date(t).toLocaleString('ar-SA-u-nu-latn-ca-gregory', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s} ث` : s < 3600 ? `${Math.floor(s / 60)} د ${s % 60} ث` : `${Math.floor(s / 3600)} س ${Math.floor(s % 3600 / 60)} د`; };
+const fmtKm = (m) => m < 1000 ? `${Math.round(m)} م` : `${(m / 1000).toFixed(1)} كم`;
+const cssVar = (v) => v.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() : v;
+
+function haversine(a, b) {
+  const R = 6371000, r = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+/** نقطة على بعد m متر باتجاه deg */
+function dest(lat, lon, deg, m) {
+  const r = Math.PI / 180, d = m / 6371000, b = deg * r, p1 = lat * r, l1 = lon * r;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(b));
+  const l2 = l1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+  return [p2 / r, l2 / r];
+}
+// نفس المربعات في src/core/placeTiles.ts
+const TILE_LAT = 0.0135, TILE_LON = 0.015;
+const tileRect = (id) => { const [r, c] = id.split(':').map(Number); return [[r * TILE_LAT, c * TILE_LON], [(r + 1) * TILE_LAT, (c + 1) * TILE_LON]]; };
+
+async function api(path) {
+  const r = await fetch(`${CFG.url}/rest/v1/${path}`, { headers: HEAD });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+// ——— الخريطة ———
+const map = L.map('map', { zoomControl: true }).setView([24.71, 46.67], 12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+let layers = L.layerGroup().addTo(map);
+let live = L.layerGroup().addTo(map);
+const markers = new Map();
+/** حدود المشوار المعروض: لو الخريطة كانت مخفية (مقاسها صفر) نقرّب عليها أول ما تبان */
+let fitTo = null;
+let wasHidden = false;
+new ResizeObserver(() => {
+  const el = $('map');
+  if (!el.clientWidth || !el.clientHeight) { wasHidden = true; return; }
+  map.invalidateSize();
+  if (wasHidden && fitTo) map.fitBounds(fitTo, { padding: [30, 30] });
+  wasHidden = false;
+}).observe($('map'));
+
+// مفتوح في الشاشة الكبيرة، ومقفل في الجوال عشان ما يغطي الخريطة
+$('legend').open = matchMedia('(min-width: 861px)').matches;
+$('legendBody').innerHTML = [
+  '<b>المربعات</b>', ...Object.values(SRC).map(([t, c]) => `<div><span class="sw" style="background:${c};opacity:.5"></span>${t}</div>`),
+  '<b>المحلات</b>', ...['alerted', 'rejected', 'pending', 'ring', 'other'].map((k) => `<div><span class="sw" style="border-radius:50%;border:3px solid ${STATUS[k][1]}"></span>${STATUS[k][0]}</div>`),
+  '<div><span class="tag" style="background:var(--db)">✓</span> مسجّل قبل المشوار</div>',
+  '<div><span class="tag" style="background:var(--new)">★</span> جديد بهالمشوار</div>',
+  '<div>🔔 تنبيه · <span class="sw" style="border:2px solid var(--brand);border-radius:50%"></span> نطاق التنبيه</div>',
+].join('');
+
+// ——— القائمة ———
+let rows = [];
+async function loadList() {
+  $('status').textContent = 'نحمّل…';
+  try {
+    const list = await api('trip_logs?select=id,created_at,device,trip:log->>id,started:log->startedAt,ended:log->endedAt,source:log->>source&order=created_at.desc&limit=200');
+    // «ارفع الحين» ثم نهاية المشوار = سجلين لنفس المشوار: الأحدث يغلب
+    const seen = new Set();
+    rows = list.filter((r) => !seen.has(r.trip) && seen.add(r.trip));
+    $('trips').innerHTML = rows.map((r, i) => {
+      const dur = r.ended ? ` · ${fmtDur(r.ended - r.started)}` : '';
+      return `<option value="${i}">${fmtDate(r.started)}${dur}${r.source === 'test' ? ' · تجريبي' : ''} · ${esc(r.device)}</option>`;
+    }).join('');
+    $('status').textContent = `${rows.length} مشوار`;
+    if (rows.length) await show(0);
+    else $('panel').innerHTML = '<div id="msg">ما فيه مشاوير للحين. شغّل «سجّل مشاويري» من إعدادات متقدمة في التطبيق.</div>';
+  } catch (e) {
+    $('status').textContent = '';
+    $('panel').innerHTML = `<div id="msg">ما قدرنا نحمّل: ${esc(e.message)}</div>`;
+  }
+}
+$('trips').onchange = (e) => show(Number(e.target.value));
+$('reload').onclick = loadList;
+
+// ——— مشوار ———
+async function show(i) {
+  $('panel').innerHTML = '<div id="msg">نحمّل المشوار…</div>';
+  const [row] = await api(`trip_logs?select=log&id=eq.${rows[i].id}`);
+  const log = row.log;
+  const start = log.startedAt, end = log.endedAt ?? log.points.at(-1)?.[0] ?? start;
+
+  // المربعات: من الجوال، أو من السيرفر (قبل المشوار = قاعدة البيانات، أثناءه = جديد من TomTom)
+  const keys = Object.keys(log.tiles);
+  const tiles = [...new Set(keys.map((k) => k.split('|')[0]))];
+  const cats = new Set(keys.map((k) => k.split('|')[1]));
+  let dbRows = [];
+  if (tiles.length) {
+    const inList = tiles.map((t) => `"${t}"`).join(',');
+    dbRows = await api(`place_tiles?select=tile,category,fetched_at,places&tile=in.(${encodeURIComponent(inList)})`);
+  }
+  const rowByKey = new Map(dbRows.map((r) => [`${r.tile}|${r.category}`, r]));
+  const keySrc = {};
+  for (const k of keys) {
+    const r = rowByKey.get(k);
+    if (log.tiles[k] === 'phone') keySrc[k] = 'phone';
+    else if (!r) keySrc[k] = 'none';
+    else keySrc[k] = new Date(r.fetched_at).getTime() >= start - 60000 ? 'new' : 'db';
+  }
+  const tileSrc = {};
+  for (const t of tiles) {
+    const s = keys.filter((k) => k.startsWith(t + '|')).map((k) => keySrc[k]);
+    tileSrc[t] = s.includes('new') ? 'new' : s.includes('db') ? 'db' : s.includes('phone') ? 'phone' : 'none';
+  }
+
+  // المحلات: كل اللي في المربعات لأنواع المشوار، والمطابقة من السجل
+  const places = new Map();
+  for (const r of dbRows) {
+    if (!cats.has(r.category)) continue;
+    const isNew = new Date(r.fetched_at).getTime() >= start - 60000;
+    for (const p of r.places || []) {
+      const have = places.get(p.id);
+      if (have) { if (!have.categories.includes(p.category)) have.categories.push(p.category); have.isNew &&= isNew; continue; }
+      places.set(p.id, { id: p.id, name: p.name || CAT[p.category]?.[1] || 'بدون اسم', lat: p.lat, lon: p.lon, branch: p.branch, categories: [p.category], isNew, matched: false });
+    }
+  }
+  for (const [id, p] of Object.entries(log.places)) {
+    const have = places.get(id);
+    if (have) have.matched = true;
+    else places.set(id, { id, ...p, name: p.name || CAT[p.categories[0]]?.[1] || 'بدون اسم', isNew: null, matched: true });
+  }
+  // حالة كل محل: الأهم يغلب (نبّهناك، ثم ما نبّهنا وسببه، ثم نقيّمه)
+  const rank = { alerted: 4, rejected: 3, blocked: 3, pending: 2, passed: 1 };
+  const state = new Map();
+  for (const [t, id, st, reason, dist, angle, detour] of log.cands) {
+    const cur = state.get(id);
+    if (!cur || (rank[st] ?? 0) >= (rank[cur.st] ?? 0)) state.set(id, { st, reason: reason ?? cur?.reason, t, dist, angle, detour });
+  }
+  for (const a of log.alerts) state.set(a.placeId, { ...(state.get(a.placeId) || {}), st: 'alerted', t: a.t });
+  const statusOf = (p) => state.get(p.id)?.st === 'passed' ? 'pending' : state.get(p.id)?.st ?? (p.matched ? 'ring' : 'other');
+
+  // ——— الرسم ———
+  layers.clearLayers(); live.clearLayers(); markers.clear();
+  for (const t of tiles) {
+    const [, c] = SRC[tileSrc[t]];
+    L.rectangle(tileRect(t), { color: cssVar(c), weight: 1, fillOpacity: 0.12 }).bindTooltip(`${t} · ${SRC[tileSrc[t]][0]}`).addTo(layers);
+  }
+  const path = log.points.map((p) => [p[1], p[2]]);
+  if (path.length) L.polyline(path, { color: cssVar('var(--brand)'), weight: 5, opacity: 0.85 }).addTo(layers);
+  for (const p of places.values()) {
+    const st = statusOf(p);
+    const s = state.get(p.id);
+    const emoji = CAT[p.categories[0]]?.[0] ?? '📍';
+    const badge = p.isNew === null ? '' : p.isNew
+      ? '<i style="background:var(--new)">★</i>' : '<i style="background:var(--db)">✓</i>';
+    const icon = L.divIcon({
+      className: '', iconSize: [30, 30], iconAnchor: [15, 15],
+      html: `<div class="pin ${st === 'other' ? 'faded' : ''}" style="border-color:${STATUS[st][1]}">${emoji}${badge}</div>`,
+    });
+    const why = s?.reason ? `<br>السبب: ${esc(REASON[s.reason] ?? s.reason)}` : '';
+    const det = s?.detour != null ? `<br>التحويلة: ${fmtDur(s.detour * 1000)}` : '';
+    const m = L.marker([p.lat, p.lon], { icon, zIndexOffset: st === 'other' ? 0 : 500 }).bindPopup(
+      `<b>${esc(p.name)}</b>${p.branch ? ` · ${esc(p.branch)}` : ''}<br>${p.categories.map((c) => CAT[c]?.[1] ?? c).join('، ')}`
+      + `<br>${STATUS[st][0]}${why}${det}`
+      + `<br><span class="sub">${p.isNew === null ? 'مكان تجريبي' : p.isNew ? 'جديد بهالمشوار' : 'مسجّل قبل المشوار'}</span>`,
+    ).addTo(layers);
+    markers.set(p.id, m);
+  }
+  const at = (t) => { let best = log.points[0]; for (const p of log.points) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p; return best; };
+  for (const a of log.alerts) {
+    const p = at(a.t);
+    if (!p) continue;
+    L.marker([p[1], p[2]], { icon: L.divIcon({ className: '', html: '<div class="bell">🔔</div>', iconSize: [22, 22], iconAnchor: [11, 11] }), zIndexOffset: 1000 })
+      .bindPopup(`<b>${fmtTime(a.t)} ${esc(a.title)}</b><br>${esc(a.items)}<br>${fmtKm(a.distance)} · تحويلة ${fmtDur(a.detour * 1000)}`).addTo(layers);
+  }
+  const bounds = L.latLngBounds(path.length ? path : [...places.values()].map((p) => [p.lat, p.lon]));
+  fitTo = bounds.isValid() ? bounds : null;
+  map.invalidateSize();
+  if (fitTo) map.fitBounds(fitTo, { padding: [30, 30] });
+
+  // شريط الوقت: مكانك ونطاق التنبيه (الدائرة والمخروط قدامك) في كل لحظة
+  const bar = $('timebar'), range = $('time');
+  bar.hidden = !log.points.length;
+  range.max = Math.max(0, log.points.length - 1);
+  range.value = 0;
+  const ring = log.settings.outerRingM, half = log.settings.aheadAngleDeg;
+  const drawAt = (idx) => {
+    live.clearLayers();
+    const p = log.points[idx];
+    if (!p) return;
+    const [t, lat, lon, speed, heading] = p;
+    L.circle([lat, lon], { radius: ring, color: cssVar('var(--brand)'), weight: 1.5, fillOpacity: 0.04, dashArray: '6 6' }).addTo(live);
+    if (heading !== null) {
+      const cone = [[lat, lon]];
+      for (let d = -half; d <= half; d += 5) cone.push(dest(lat, lon, heading + d, ring));
+      L.polygon(cone, { color: cssVar('var(--brand)'), weight: 1, fillOpacity: 0.12 }).addTo(live);
+    }
+    L.marker([lat, lon], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), zIndexOffset: 2000 }).addTo(live);
+    $('timeText').textContent = `${fmtTime(t)} · ${Math.round(speed * 3.6)} كم/س`;
+  };
+  range.oninput = () => drawAt(Number(range.value));
+  drawAt(0);
+  const seek = (t) => { const idx = log.points.findIndex((p) => p[0] >= t); range.value = idx < 0 ? log.points.length - 1 : idx; drawAt(Number(range.value)); };
+
+  // ——— التفاصيل ———
+  let dist = 0, maxSpeed = 0;
+  const gaps = [];
+  for (let k = 1; k < log.points.length; k++) {
+    const a = log.points[k - 1], b = log.points[k];
+    dist += haversine([a[1], a[2]], [b[1], b[2]]);
+    maxSpeed = Math.max(maxSpeed, b[3]);
+    if (b[0] - a[0] > 20000) gaps.push([a[0], b[0]]);
+  }
+  const dur = end - start;
+  const count = (src) => keys.filter((k) => keySrc[k] === src).length;
+  const newTiles = tiles.filter((t) => tileSrc[t] === 'new').length;
+  const month = new Date(start).toISOString().slice(0, 7);
+  let spent = null;
+  try { spent = (await api(`tomtom_budget?select=spent&month=eq.${month}`)).reduce((s, r) => s + Number(r.spent), 0); } catch { /* تجاهل */ }
+  const all = [...places.values()];
+  const matched = all.filter((p) => p.matched);
+  const inRing = new Set(log.cands.map((c) => c[1]));
+  const failed = log.requests.filter((r) => !r.ok).length;
+  const avgMs = log.requests.length ? Math.round(log.requests.reduce((s, r) => s + r.ms, 0) / log.requests.length) : 0;
+
+  const respOf = (id) => log.responses.find((r) => r.alertId === id);
+  const alertsHtml = log.alerts.map((a) => {
+    const r = respOf(a.id);
+    const ans = r ? `${ACTION[r.action] ?? r.action}${r.action !== 'ignored' ? ` بعد ${fmtDur(r.t - a.t)}` : ''}` : 'ما فيه رد';
+    return `<div class="row click" data-t="${a.t}" data-p="${esc(a.placeId)}"><b>${fmtTime(a.t)} ${esc(a.title)}</b> · ${fmtKm(a.distance)}<br>
+      ${esc(a.items)} · تحويلة ${fmtDur(a.detour * 1000)}<br><span class="sub">ردك: ${esc(ans)}</span></div>`;
+  }).join('') || '<div class="sub">ما جاك تنبيه.</div>';
+
+  const notAlerted = matched.filter((p) => ['rejected', 'blocked'].includes(statusOf(p)));
+  const notHtml = notAlerted.map((p) => {
+    const s = state.get(p.id);
+    return `<div class="row click" data-t="${s.t}" data-p="${esc(p.id)}"><b>${esc(p.name)}</b> · ${fmtKm(s.dist)}<br>
+      <span class="sub">${esc(REASON[s.reason] ?? s.reason ?? '')}${s.detour != null ? ` · تحويلة ${fmtDur(s.detour * 1000)}` : ''} · زاوية ${s.angle}°</span></div>`;
+  }).join('') || '<div class="sub">كل المحلات اللي دخلت النطاق نبّهناك عليها أو لسى نقيّمها.</div>';
+
+  const evText = { background: 'التطبيق راح للخلفية', foreground: 'رجع التطبيق', cut: 'انقفل قبل نهاية المشوار', truncated: 'السجل كبر' };
+  const events = [
+    ...log.events.map((e) => ({ t: e.t, text: e.text || evText[e.kind] || e.kind })),
+    ...gaps.map(([a, b]) => ({ t: a, text: `انقطع الموقع ${fmtDur(b - a)}` })),
+    ...log.responses.filter((r) => r.action === 'go').map((r) => ({ t: r.t, text: 'فتح Google Maps («اذهب»)' })),
+    ...log.requests.filter((r) => !r.ok).map((r) => ({ t: r.t, text: `طلب السيرفر فشل (${r.asked.length} مربع|نوع)` })),
+  ].sort((a, b) => a.t - b.t);
+
+  $('panel').innerHTML = `
+    <div class="card">
+      <b>${fmtDate(start)}</b> ← ${fmtTime(end)}${log.source === 'test' ? ' · <span class="tag" style="background:var(--warn)">تجريبي</span>' : ''}
+      <div class="stats" style="margin-top:8px">
+        <div><b>${fmtDur(dur)}</b><span>المدة</span></div>
+        <div><b>${fmtKm(dist)}</b><span>المسافة</span></div>
+        <div><b>${dur ? Math.round(dist / (dur / 1000) * 3.6) : 0} كم/س</b><span>متوسط السرعة</span></div>
+        <div><b>${Math.round(maxSpeed * 3.6)} كم/س</b><span>أعلى سرعة</span></div>
+      </div>
+    </div>
+
+    <h2>الطلبات والتكلفة</h2>
+    <div class="card">
+      <div class="stats">
+        <div><b>${tiles.length}</b><span>مربع (${keys.length} مربع×نوع)</span></div>
+        <div><b style="color:var(--new)">${newTiles}</b><span>طلب TomTom تقريبًا (مربعات جديدة)</span></div>
+        <div><b style="color:var(--phone)">${count('phone')}</b><span>من الجوال</span></div>
+        <div><b style="color:var(--db)">${count('db')}</b><span>من قاعدة البيانات</span></div>
+        <div><b style="color:var(--new)">${count('new')}</b><span>جديدة من TomTom</span></div>
+        <div><b>${count('none')}</b><span>ما رجعت (فشل أو خلص الرصيد)</span></div>
+      </div>
+      <div class="sub" style="margin-top:6px">
+        ${log.requests.length} طلب للسيرفر${failed ? `، ${failed} فشل` : ''}${avgMs ? `، متوسط الرد ${fmtDur(avgMs)}` : ''}.
+        ${spent !== null ? `رصيد الشهر: صرفنا ${Math.round(spent)} من ${BUDGET} (باقي ${Math.round(BUDGET - spent)}).` : ''}
+      </div>
+    </div>
+
+    <h2>المحلات</h2>
+    <div class="card">
+      <div class="stats">
+        <div><b>${all.length}</b><span>محل في المربعات</span></div>
+        <div><b>${all.filter((p) => p.isNew === false).length} / ${all.filter((p) => p.isNew).length}</b><span>مسجّل قبل / جديد</span></div>
+        <div><b>${matched.length}</b><span>يطابق تذاكيرك</span></div>
+        <div><b>${inRing.size}</b><span>دخل نطاق التنبيه</span></div>
+      </div>
+    </div>
+
+    <h2>التنبيهات (${log.alerts.length} من ${log.settings.maxAlertsPerTrip})</h2>
+    <div class="card">${alertsHtml}</div>
+
+    <h2>ما نبّهناك وليش</h2>
+    <div class="card">${notHtml}</div>
+
+    <h2>أحداث</h2>
+    <div class="card">${events.map((e) => `<div class="row click" data-t="${e.t}">${fmtTime(e.t)} · ${esc(e.text)}</div>`).join('') || '<div class="sub">ما فيه.</div>'}</div>
+
+    <h2>التذاكير وقت المشوار</h2>
+    <div class="card">${log.reminders.map((r) => `<div class="row">${esc(r.title)} <span class="sub">· ${esc(r.target)}</span></div>`).join('')}</div>
+
+    <h2>الإعدادات</h2>
+    <div class="card sub">التحويلة ${log.settings.maxDetourMin} د بالكثير · ${log.settings.maxAlertsPerTrip} تنبيهات · النطاق ${fmtKm(ring)} · قدامك ${half}° يمين ويسار</div>
+  `;
+  $('panel').querySelectorAll('[data-t]').forEach((el) => {
+    el.onclick = () => {
+      seek(Number(el.dataset.t));
+      const m = el.dataset.p && markers.get(el.dataset.p);
+      if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 15)); m.openPopup(); }
+    };
+  });
+}
+
+if (!CFG.url) $('panel').innerHTML = '<div id="msg">ملف trips-config.js ناقص.</div>';
+else loadList();
+</script>
+</body>
+</html>

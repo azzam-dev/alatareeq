@@ -101,12 +101,13 @@ npm --prefix mobile run web      # نفس التطبيق في المتصفح ل�
 | `src/ui/NotesScreen.tsx`, `DoneScreen.tsx`, `AddSheet.tsx` | «مذكرة» (اللي باقي، بالأولوية أو الموعد، و«انتهى» للي فات موعده)، «تمت» («جبتها» بفرز التاريخ/الفئة/المكان، و«انتهى موعدها»)، ونافذة + (تحفظ مباشرة لو فهمت الغرض ومحله، وإلا تفتح المحرر). |
 | `src/ui/CategoryPicker.tsx`, `DeadlineField.tsx`, `BrandField.tsx` | في المحرر: اختيار الفئة من نافذة ببحث، و«آخر موعد» (اليوم، الوقت نص ساعة نص ساعة، «ذكرني»)، و«براند أو اسم» مع «تقصد: …؟». |
 | `src/services/brands.ts` | ينادي دالة `verify-brand`: `suggestBrand` (اقتراح بدون كتابة) و`confirmBrand` (المستخدم اعتمده). |
-| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`) و«تجاوزت المكان؟» (`passed`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). على الويب الموقع من `navigator.geolocation` مباشرة (`startWebGps`)، لأن `watchPositionAsync` في `expo-location` للويب فيه خلل يضيّع المواقع. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
+| `src/services/engine.ts` | محرك الجوال (نسخة من محرك الويب بدون خريطة ولا OSRM)، تنبيه المرور بس (`pass`، وزر «لا» فيه «مو هذا المحل» و«مو بهالمشوار»، والتنبيه الجاي بعد ٢٠ ث لو رديت و٣ د لو ما رديت: `trip.nextAlertAt`)، ومصدرين: `gps` (أماكن `tilePlaces`) و`test` (المشوار التجريبي بأماكن العليا). على الويب الموقع من `navigator.geolocation` مباشرة (`startWebGps`)، لأن `watchPositionAsync` في `expo-location` للويب فيه خلل يضيّع المواقع. فيه كمان انتهاء التنبيهات (`sweepAlerts`) وجواب «خلصت؟» (`confirmGo`). |
 | `src/services/device.ts` | إشعارات بأزرار (فئة لكل نوع تنبيه) بطابور مرتّب، نطق، اهتزاز، و«اذهب» / «افتح في خرائط Google». |
 | `src/services/places.ts`, `src/mock/olaya.ts` | مصدرين: `tilePlaces` (مربعات TomTom من `nearby-places`، محفوظة في الجوال ٩٠ يوم) و`mockPlaces` (العليا للمشوار التجريبي)، و`branchOf`. |
 | `src/services/routePlayer.ts` | المشوار التجريبي: يمشي على مسار ثابت بدون شبكة. |
 | `src/ui/GoCheckCard.tsx` | «رحت له؟» بعلامة صح لكل غرض (من `src/core/items.ts`)، و`GoResultToast`. |
 | `src/state/store.ts`, `src/ui/` | المخزن والواجهات، بنفس أنماط الويب. |
+| `src/services/tripLog.ts`, `public/trips.html` | **مؤقت للاختبار:** سجل المشوار (يتشغّل من «إعدادات متقدمة») يرتفع لجدول `trip_logs`، وصفحة `/trips.html` تعرضه على خريطة. ينشالون مع الجدول بعد الاختبار (التفاصيل في PROGRESS.md). |
 
 - **كل تذكير «عند المرور» وله محل** (فئة أو براند): ما فيه «عند الوصول» ولا تنبيه بوقت. الوقت في الجملة يصير **آخر موعد**
   (`src/core/reminderInput.ts` → `toReminderInputs`، وكل غرض تذكير مستقل)، والجملة اللي ما لها محل («أتصل على أبوي») ما تنحفظ. السجل انشال كامل.

@@ -52,9 +52,9 @@ export function reasonText(reason: SuppressReason, d: { detourSeconds?: number; 
     case 'behind': return `المكان مو قدامك (زاوية ${Math.round(d.angle ?? 0)}° والحد ${s.aheadAngleDeg}°)`;
     case 'late': return 'قريب مرّة، ما فيه وقت كافي تتصرف بأمان';
     case 'notified': return 'سبق ونبهناك عنه في هالمشوار';
-    case 'snoozed': return 'ضغطت «لاحقًا» في هالمشوار';
+    case 'snoozed': return 'أجّلته لين ينتهي هالمشوار';
     case 'budget': return `وصلنا الحد الأقصى (${s.maxAlertsPerTrip} تنبيهات) في هالمشوار`;
-    case 'cooldown': return `آخر تنبيه كان قبل أقل من ${s.cooldownMin} دقائق`;
+    case 'cooldown': return 'بعد تنبيه قريب، نعطيك وقت قبل اللي بعده';
     case 'quiet': return `ساعات الهدوء (${s.quietStart}–${s.quietEnd})`;
     case 'notBefore': return `التذكير يبدأ ${d.notBefore ? new Date(d.notBefore).toLocaleDateString('ar-SA-u-nu-latn-ca-gregory', { weekday: 'long', day: 'numeric', month: 'short' }) : 'لاحقًا'}`;
   }
